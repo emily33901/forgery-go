@@ -1,0 +1,5 @@
+*.exe
+imgui.ini
+.vscode/
+*.code-workspace
+debug

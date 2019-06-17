@@ -134,9 +134,11 @@ func (renderer *Renderer) DrawComposition(composition *Composition, mesh *gosigl
 
 		renderer.LineColor = [4]float32{0, 0, 0, 1}
 		renderer.LineColor[i] = 1.0
-		renderer.adapter.SendUniformVec4(renderer.uniforms[ModeWireFrame]["color"], &renderer.LineColor[0])
 
 		renderer.beginRender(ModeWireFrame)
+
+		renderer.adapter.SendUniformVec4(renderer.uniforms[ModeWireFrame]["color"], &renderer.LineColor[0])
+
 		{
 			renderer.adapter.DrawTriangleArray(matObj.Offset(), matObj.Length())
 			renderer.adapter.Error()

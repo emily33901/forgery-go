@@ -8,7 +8,7 @@ import (
 	"github.com/emily33901/go-forgery/valve/world"
 	"github.com/galaco/source-tools-common/entity"
 	"github.com/galaco/vmf"
-	"github.com/go-gl/mathgl/mgl64"
+	"github.com/go-gl/mathgl/mgl32"
 )
 
 type Vmf struct {
@@ -91,11 +91,11 @@ func NewCameras(activeCameraIndex int, cameras []Camera) *Cameras {
 }
 
 type Camera struct {
-	Position mgl64.Vec3
-	Look     mgl64.Vec3
+	Position mgl32.Vec3
+	Look     mgl32.Vec3
 }
 
-func NewCamera(position mgl64.Vec3, look mgl64.Vec3) *Camera {
+func NewCamera(position mgl32.Vec3, look mgl32.Vec3) *Camera {
 	return &Camera{
 		Position: position,
 		Look:     look,
@@ -103,8 +103,8 @@ func NewCamera(position mgl64.Vec3, look mgl64.Vec3) *Camera {
 }
 
 type Cordon struct {
-	mins   mgl64.Vec3
-	maxs   mgl64.Vec3
+	mins   mgl32.Vec3
+	maxs   mgl32.Vec3
 	active bool
 }
 
@@ -164,19 +164,19 @@ func loadVersionInfo(root *vmf.Node) (*VersionInfo, error) {
 	if root == nil {
 		return nil, errors.New("missing versioninfo")
 	}
-	editorVersion, err := strconv.ParseInt(root.GetProperty("editorversion"), 10, 64)
+	editorVersion, err := strconv.ParseInt(root.GetProperty("editorversion"), 10, 32)
 	if err != nil {
 		return nil, err
 	}
-	editorBuild, err := strconv.ParseInt(root.GetProperty("editorbuild"), 10, 64)
+	editorBuild, err := strconv.ParseInt(root.GetProperty("editorbuild"), 10, 32)
 	if err != nil {
 		return nil, err
 	}
-	mapVersion, err := strconv.ParseInt(root.GetProperty("mapversion"), 10, 64)
+	mapVersion, err := strconv.ParseInt(root.GetProperty("mapversion"), 10, 32)
 	if err != nil {
 		return nil, err
 	}
-	formatVersion, err := strconv.ParseInt(root.GetProperty("formatversion"), 10, 64)
+	formatVersion, err := strconv.ParseInt(root.GetProperty("formatversion"), 10, 32)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +214,7 @@ func loadWorld(root *vmf.Node) (*world.World, error) {
 // it into a properly defind model structure for the solid with
 // proper type definitions.
 func loadSolid(node *vmf.Node) (*world.Solid, error) {
-	id, err := strconv.ParseInt(node.GetProperty("id"), 10, 64)
+	id, err := strconv.ParseInt(node.GetProperty("id"), 10, 32)
 	if err != nil {
 		return world.NewSolid(-1, nil, nil), err
 	}
@@ -229,7 +229,7 @@ func loadSolid(node *vmf.Node) (*world.Solid, error) {
 		var rotation, lmScale float64
 		var smoothing bool
 
-		id, err := strconv.ParseInt(sideNode.GetProperty("id"), 10, 64)
+		id, err := strconv.ParseInt(sideNode.GetProperty("id"), 10, 32)
 		if err != nil {
 			return nil, err
 		}
@@ -240,11 +240,11 @@ func loadSolid(node *vmf.Node) (*world.Solid, error) {
 		u = *world.NewUVTransformFromString(sideNode.GetProperty("uaxis"))
 		v = *world.NewUVTransformFromString(sideNode.GetProperty("vaxis"))
 
-		rotation, err = strconv.ParseFloat(sideNode.GetProperty("rotation"), 64)
+		rotation, err = strconv.ParseFloat(sideNode.GetProperty("rotation"), 32)
 		if err != nil {
 			return nil, err
 		}
-		lmScale, err = strconv.ParseFloat(sideNode.GetProperty("lightmapscale"), 64)
+		lmScale, err = strconv.ParseFloat(sideNode.GetProperty("lightmapscale"), 32)
 		if err != nil {
 			return nil, err
 		}

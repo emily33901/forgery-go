@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/sqweek/dialog"
+
 	"github.com/emily33901/go-forgery/valve"
 
 	"github.com/emily33901/go-forgery/formats"
@@ -138,7 +140,20 @@ func (f *ForgeryContext) RenderUI() {
 			if imgui.MenuItem("New") {
 			}
 			if imgui.MenuItemV("Open", "Ctrl-O", false, true) {
+				filename, err := dialog.File().Filter("Hammer map file", "vmf").Load()
+				if err == nil {
+					newMap, err := formats.LoadVmf(filename)
 
+					if err != nil {
+						panic(err)
+					}
+
+					// @TODO we need to clean up the old scene and cameras and associated data
+
+					f.activeMap = newMap
+					f.documentLoaded = true
+					f.scene = view.NewSceneFromVmf(f.activeMap)
+				}
 			}
 			if imgui.BeginMenu("Recent") {
 				imgui.EndMenu()

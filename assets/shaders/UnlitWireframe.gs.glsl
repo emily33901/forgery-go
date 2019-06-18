@@ -1,14 +1,14 @@
 #version 150
 
 layout(triangles) in;
-layout(triangle_strip, max_vertices=3) out;
+// layout(triangle_strip, max_vertices=3) out;
+layout(line_strip, max_vertices=4) out;
 
 uniform mat4 projection;
 uniform mat4 view;
 uniform mat4 model;
 
 out vec3 coord;
-out vec3 extents;
 out vec3 bary;
 
 in VertData {
@@ -30,6 +30,49 @@ void main()
     vec3 bary0 = vec3(0);
     vec3 bary1 = vec3(0);
     vec3 bary2 = vec3(0);
+
+    int out0;
+    int out1;
+    int out2;
+
+    if (edgeA > edgeB && edgeA > edgeC) {
+        // edgeA is hyp
+        out0 = 0;
+        out1 = 2;
+        out2 = 1;
+    } else if (edgeB > edgeC && edgeB > edgeA) {
+        // edgeB is hyp
+        out0 = 1;
+        out1 = 0;
+        out2 = 2;
+    } else {
+        // edgeC is hyp
+        out0 = 2;
+        out1 = 1;
+        out2 = 0;
+    }
+
+    // Now emit vertices
+    coord = inData[out0].coord;
+    gl_Position = gl_in[out0].gl_Position;
+    EmitVertex();
+
+    coord = inData[out1].coord;
+    gl_Position = gl_in[out1].gl_Position;
+    EmitVertex();
+
+    coord = inData[out1].coord;
+    gl_Position = gl_in[out1].gl_Position;
+    EmitVertex();
+
+    coord = inData[out2].coord;
+    gl_Position = gl_in[out2].gl_Position;
+    EmitVertex();
+
+#if 0
+    // This is the magic for doing this on triangles
+    // or arbitrary width lines
+    // @TODO revisit this
 
     // We need to keep all the edges numbered "consistently"
     // By making the edge away from the hyp 
@@ -69,4 +112,6 @@ void main()
     coord = p2.xyz;
     bary = bary2;
     EmitVertex();
+
+#endif
 }

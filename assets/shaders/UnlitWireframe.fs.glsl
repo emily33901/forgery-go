@@ -6,7 +6,6 @@ uniform vec4 color;
 uniform float blendFactor; //1.5..2.5
 
 in vec3 coord;
-in vec3 extents;
 in vec3 bary;
 
 out vec4 fragCol;

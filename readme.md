@@ -8,6 +8,5 @@ A large amount of the code here is from Galaco's work on [Lambda](https://github
 
 
 ## Screenshots
-Colors are currently wrong due to how imgui's shader renders drawlist data.
 
-![Demo image](https://i.f1ssi0n.com/HelpfulCensorianGiantBombardierBeetle.png)
+![Demo image](https://i.f1ssi0n.com/AntiallergenicProfitableMassasauga.png)

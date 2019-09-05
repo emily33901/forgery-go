@@ -54,6 +54,7 @@ func (scene *Scene) RecomposeScene(fs filesystem.IFileSystem) *gosigl.VertexObje
 	gosigl.CreateVertexAttributeArrayBuffer(sceneMesh, scene.FrameComposed.Normals(), 3)
 	gosigl.CreateVertexAttributeArrayBuffer(sceneMesh, scene.FrameComposed.UVs(), 2)
 	gosigl.CreateVertexAttributeArrayBuffer(sceneMesh, scene.FrameComposed.Tangents(), 3)
+	gosigl.CreateVertexAttributeArrayBuffer(sceneMesh, scene.FrameComposed.Colors(), 4)
 	gosigl.FinishMesh()
 
 	scene.FrameMesh = sceneMesh
@@ -77,7 +78,7 @@ func (scene *Scene) AddSolid(solid *world.Solid) {
 }
 
 func (scene *Scene) AddCamera(camera *formats.Camera, name string) {
-	c := entity.NewCamera(70, 1024/768)
+	c := entity.NewCamera(70)
 
 	c.Transform().Position = mgl32.Vec3{float32(camera.Position.X()), float32(camera.Position.Y()), float32(camera.Position.Z())}
 	c.Transform().Rotation = mgl32.Vec3{

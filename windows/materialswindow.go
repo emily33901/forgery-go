@@ -34,7 +34,7 @@ func RenderMaterialsWindow(fs filesystem.IFileSystem, shouldOpen *bool) {
 					imgui.PushTextWrapPosV(float32(coli * thumbSize))
 					{
 						pos := imgui.CursorPos()
-						imgui.Image(imgui.TextureID(cache.LookupTexture(fs, k)), imgui.Vec2{thumbSize, thumbSize})
+						imgui.Image(oglToImguiTextureId(uint32(cache.LookupTexture(fs, k))), imgui.Vec2{thumbSize, thumbSize})
 						imgui.SetCursorPos(pos)
 						imgui.SelectableV(k, false, 0, imgui.Vec2{thumbSize, thumbSize})
 					}

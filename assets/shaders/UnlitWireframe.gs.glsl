@@ -10,9 +10,11 @@ uniform mat4 model;
 
 out vec3 coord;
 out vec3 bary;
+out vec4 color;
 
 in VertData {
     vec3 coord;
+    vec4 color;
 } inData[];
 
 void main()
@@ -54,18 +56,22 @@ void main()
 
     // Now emit vertices
     coord = inData[out0].coord;
+    color = inData[out0].color;
     gl_Position = gl_in[out0].gl_Position;
     EmitVertex();
 
     coord = inData[out1].coord;
+    color = inData[out1].color;
     gl_Position = gl_in[out1].gl_Position;
     EmitVertex();
 
     coord = inData[out1].coord;
+    color = inData[out1].color;
     gl_Position = gl_in[out1].gl_Position;
     EmitVertex();
 
     coord = inData[out2].coord;
+    color = inData[out2].color;
     gl_Position = gl_in[out2].gl_Position;
     EmitVertex();
 

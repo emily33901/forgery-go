@@ -2,6 +2,7 @@ package convert
 
 import (
 	"fmt"
+	"math/rand"
 
 	"github.com/emily33901/go-forgery/valve/world"
 	"github.com/emily33901/gosigl"
@@ -13,14 +14,18 @@ import (
 func SolidToModel(solid *world.Solid) *lambdaModel.Model {
 	meshes := make([]lambdaMesh.IMesh, 0)
 
+	solidColor := []float32{rand.Float32()/4 + 0.1, rand.Float32()/2 + 0.5, rand.Float32()/4 + 0.75, 1.0}
+
 	for idx := range solid.Sides {
-		meshes = append(meshes, SideToMesh(&solid.Sides[idx]))
+		mesh := SideToMesh(&solid.Sides[idx])
+		mesh.AddColor(solidColor...)
+		meshes = append(meshes, mesh)
 	}
 
 	return lambdaModel.NewModel(fmt.Sprintf("solid_%d", solid.Id), meshes...)
 }
 
-func SideToMesh(side *world.Side) lambdaMesh.IMesh {
+func SideToMesh(side *world.Side) *lambdaMesh.Mesh {
 	mesh := lambdaMesh.NewMesh()
 
 	// Material

@@ -5,6 +5,7 @@ import (
 	"image"
 	_ "image/png"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/sqweek/dialog"
@@ -129,9 +130,9 @@ func (f *ForgeryContext) RenderUI() {
 	if f.documentLoaded {
 		for _, window := range f.sceneWindows {
 			// We do this here because we dont have a deltaTime in sceneWindow.Render()
-			window.Camera().Update(f.deltaTime.Seconds())
+			window.Camera().Update() // f.deltaTime.Seconds()
 
-			window.Render(f.deltaTime.Seconds())
+			window.Render(float32(f.deltaTime.Seconds()))
 		}
 	}
 
@@ -302,11 +303,30 @@ func (f *ForgeryContext) RenderUI() {
 	}
 }
 
+func (f *ForgeryContext) CleanupWindows() {
+	marked := []int{}
+
+	for i, v := range f.sceneWindows {
+		if v.HasClosed() {
+			marked = append(marked, i)
+		}
+	}
+
+	sort.Sort(sort.IntSlice(marked))
+
+	for _, i := range marked {
+		f.sceneWindows[i] = f.sceneWindows[len(f.sceneWindows)-1]
+		f.sceneWindows = f.sceneWindows[:len(f.sceneWindows)-1]
+	}
+}
+
 func (f *ForgeryContext) Run() {
 	clearColor := [4]float32{0.1, 0.1, 0.1, 1.0}
 
 	for !f.platform.ShouldStop() {
 		f.platform.ProcessEvents()
+
+		f.CleanupWindows()
 
 		// Render all our viewports
 		f.RenderScene()

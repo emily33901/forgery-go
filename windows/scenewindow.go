@@ -47,6 +47,10 @@ type SceneWindow struct {
 	renderType int
 }
 
+func oglToImguiTextureId(id uint32) imgui.TextureID {
+	return imgui.TextureID(uint64(id) | (1 << 32))
+}
+
 func NewSceneWindow(fs filesystem.IFileSystem,
 	adapter render.Adapter,
 	renderer *render.Renderer,
@@ -77,7 +81,6 @@ func NewSceneWindow(fs filesystem.IFileSystem,
 	}
 
 	renderer.LineWidth = 3
-	renderer.LineColor = [4]float32{1, 1, 1, 1}
 
 	return r
 }
@@ -99,9 +102,9 @@ func (window *SceneWindow) RenderScene() {
 
 	if c := window.Camera(); c == nil {
 		logger.Error("Error trying to get camera %s", window.camera)
-		window.renderer.BindCamera(window.scene.Camera("Default_0"))
+		window.renderer.BindCamera(window.scene.Camera("Default_0"), window.wSize.X/window.wSize.Y)
 	} else {
-		window.renderer.BindCamera(c)
+		window.renderer.BindCamera(c, window.wSize.X/window.wSize.Y)
 	}
 
 	// @TODO: this isnt used...
@@ -117,7 +120,7 @@ func (window *SceneWindow) RenderScene() {
 	window.window.Unbind()
 }
 
-func (window *SceneWindow) Render(deltaTime float64) {
+func (window *SceneWindow) Render(deltaTime float32) {
 	// Dont render if we have been closed
 	if !window.open {
 		logger.Notice("Scene window closed!")
@@ -125,7 +128,7 @@ func (window *SceneWindow) Render(deltaTime float64) {
 		return
 	}
 
-	if imgui.BeginV(window.windowId, &window.open, imgui.WindowFlagsNoBringToFrontOnFocus|imgui.WindowFlagsNoScrollbar|imgui.WindowFlagsMenuBar) {
+	if imgui.BeginV(window.windowId, &window.open, imgui.WindowFlagsNoScrollbar|imgui.WindowFlagsMenuBar) {
 		window.orthoSelected = window.Camera().Ortho()
 		window.orthoMode = window.Camera().OrthoDirection()
 
@@ -176,9 +179,12 @@ func (window *SceneWindow) Render(deltaTime float64) {
 					imgui.EndCombo()
 				}
 
+				if imgui.MenuItem("Reset position") {
+					window.Camera().SetPos(mgl32.Vec3{0, 0, 0})
+				}
+
 				// @TODO: The renderer really should not know about any of these params...
 				imgui.DragFloatV("Line Width", &window.renderer.LineWidth, 0.01, 0.001, 5, "%f", 1)
-				imgui.ColorEdit4("Line Color", &window.renderer.LineColor)
 
 				imgui.EndMenu()
 			}
@@ -201,11 +207,12 @@ func (window *SceneWindow) Render(deltaTime float64) {
 		// wSize = imgui.Vec2{wSize.X + float32(int(wSize.X)%2), wSize.Y + float32(int(wSize.Y)%2)}
 		window.wSize = wSize
 		wPos := imgui.CursorScreenPos()
-		window.Camera().SetAspect(wSize.X / wSize.Y)
+		aspect := wSize.X / wSize.Y
+		// window.Camera().SetAspect(aspect)
 
 		// @TODO change 4000 to the framebuffer size
 
-		imgui.ImageButtonV(imgui.TextureID(window.window.BufferId()),
+		imgui.ImageButtonV(oglToImguiTextureId(window.window.BufferId()),
 			wSize, //imgui.Vec2{X: wSize.X, Y: wSize.Y},
 			imgui.Vec2{X: 0, Y: wSize.Y / 4000},
 			imgui.Vec2{X: wSize.X / 4000, Y: 0},
@@ -244,57 +251,71 @@ func (window *SceneWindow) Render(deltaTime float64) {
 				scrollDelta := imgui.CurrentIO().MouseWheel()
 				delta = delta.Times(*window.cameraSens)
 
+				moveDelta := deltaTime * *window.cameraMoveSens
+
 				if window.platform.IsKeyPressed('W') {
-					window.Camera().Forwards(float64(deltaTime))
+					window.Camera().Forwards(float32(moveDelta))
 				}
 				if window.platform.IsKeyPressed('S') {
-					window.Camera().Backwards(float64(deltaTime))
+					window.Camera().Backwards(float32(moveDelta))
 				}
 				if window.platform.IsKeyPressed('A') {
-					window.Camera().Left(float64(deltaTime))
+					window.Camera().Left(float32(moveDelta))
 				}
 				if window.platform.IsKeyPressed('D') {
-					window.Camera().Right(float64(deltaTime))
+					window.Camera().Right(float32(moveDelta))
 				}
 
-				// @TODO fov is in radians (It probably shouldnt be!)
-				window.Camera().Zoom(-0.01 * scrollDelta)
+				window.Camera().Zoom(scrollDelta)
 				window.Camera().Rotate(-delta.X/180, 0, -delta.Y/180)
 			}
-		} else {
+		} else if imgui.IsItemHovered() {
 			// 2D view
 			realDragDelta := imgui.MouseDragDeltaV(2, 0)
+
 			dragDelta := realDragDelta.Minus(window.lastMouseDrag)
 			window.lastMouseDrag = realDragDelta
-			if dragDelta.X != 0 || dragDelta.Y != 0 {
-				var drag4 mgl32.Vec4
-
+			if realDragDelta.X != 0 || realDragDelta.Y != 0 {
 				// @TODO this probably shouldnt be done here
+
+				// every 1 pixel has to be scaled by the window size and the camera zoom
+				xScale := (window.Camera().OrthoZoom() / wSize.X) * aspect
+				yScale := (window.Camera().OrthoZoom() / wSize.Y)
+
+				realDelta := imgui.Vec2{dragDelta.X * xScale, dragDelta.Y * yScale}
+
+				// realDelta := window.Camera().ScreenToWorld(mgl32.Vec2{wSize.X, wSize.Y}, mgl32.Vec2{dragDelta.X, dragDelta.Y})
+
+				var drag3 mgl32.Vec3
 				switch window.orthoMode {
 				case entity.OrthoX:
 					// Z
-					drag4[2] = dragDelta.X
+					drag3[2] = realDelta.X
 					// Y
-					drag4[1] = dragDelta.Y
+					drag3[1] = realDelta.Y
 				case entity.OrthoY:
 					// X
-					drag4[0] = dragDelta.X
+					drag3[0] = realDelta.X
 					// Z
-					drag4[2] = dragDelta.Y
+					drag3[2] = realDelta.Y
 				case entity.OrthoZ:
 					// X
-					drag4[0] = dragDelta.X
+					drag3[0] = realDelta.X
 					// Y
-					drag4[1] = dragDelta.Y
+					drag3[1] = realDelta.Y
 				}
 
-				realDelta := window.Camera().ScreenToWorld(mgl32.Vec2{wSize.X, wSize.Y}, mgl32.Vec2{dragDelta.X, dragDelta.Y})
-
-				if realDelta.Len() > 0 {
-					window.Camera().Move(realDelta)
-				}
+				window.Camera().Forwards((-realDelta.Y))
+				window.Camera().Right((-realDelta.X))
 			} else {
 				window.lastMouseDrag = imgui.Vec2{0, 0}
+			}
+
+			if imgui.IsItemHovered() {
+				scrollDelta := imgui.CurrentIO().MouseWheel()
+
+				// Zoom needs to be an exp
+				window.Camera().Zoom(scrollDelta)
 			}
 		}
 

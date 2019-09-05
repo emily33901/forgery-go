@@ -1,7 +1,8 @@
 module github.com/emily33901/go-forgery
 
-// replace github.com/emily33901/lambda-core => ../lambda-core
-// replace github.com/emily33901/imgui-go => ../imgui-go
+replace github.com/emily33901/lambda-core => ../lambda-core
+
+replace github.com/emily33901/imgui-go => ../imgui-go
 
 require (
 	github.com/emily33901/gosigl v0.0.0-20190613135652-5ab578f1e6c9

@@ -22,6 +22,7 @@ type OpenGL3 struct {
 	attribLocationPosition int32
 	attribLocationUV       int32
 	attribLocationColor    int32
+	attribLocationIsImgui  int32
 	vboHandle              uint32
 	elementsHandle         uint32
 }
@@ -36,7 +37,7 @@ func NewOpenGL3(io imgui.IO) (*OpenGL3, error) {
 
 	renderer := &OpenGL3{
 		imguiIO:     io,
-		glslVersion: "#version 150",
+		glslVersion: "#version 330",
 	}
 	renderer.createDeviceObjects()
 	return renderer, nil
@@ -127,6 +128,10 @@ func (renderer *OpenGL3) Render(displaySize [2]float32, framebufferSize [2]float
 	gl.UseProgram(renderer.shaderHandle)
 	gl.Uniform1i(renderer.attribLocationTex, 0)
 	gl.UniformMatrix4fv(renderer.attribLocationProjMtx, 1, false, &orthoProjection[0][0])
+
+	// True by default
+	gl.Uniform1i(renderer.attribLocationIsImgui, 1)
+
 	gl.BindSampler(0, 0) // Rely on combined texture/sampler state.
 
 	// Recreate the VAO every time
@@ -165,10 +170,22 @@ func (renderer *OpenGL3) Render(displaySize [2]float32, framebufferSize [2]float
 			if cmd.HasUserCallback() {
 				cmd.CallUserCallback(list)
 			} else {
+				// Check what type of texture it is
+				isImgui := true
+				if uint64(cmd.TextureID())&(1<<32) == (1 << 32) {
+					gl.Uniform1i(renderer.attribLocationIsImgui, 0)
+					isImgui = false
+				}
+
 				gl.BindTexture(gl.TEXTURE_2D, uint32(cmd.TextureID()))
 				clipRect := cmd.ClipRect()
 				gl.Scissor(int32(clipRect.X), int32(fbHeight)-int32(clipRect.W), int32(clipRect.Z-clipRect.X), int32(clipRect.W-clipRect.Y))
 				gl.DrawElements(gl.TRIANGLES, int32(cmd.ElementCount()), uint32(drawType), unsafe.Pointer(indexBufferOffset))
+
+				if !isImgui {
+					// Set it back now
+					gl.Uniform1i(renderer.attribLocationIsImgui, 1)
+				}
 			}
 			indexBufferOffset += uintptr(cmd.ElementCount() * indexSize)
 		}
@@ -235,16 +252,21 @@ void main()
 `
 	fragmentShader := renderer.glslVersion + `
 uniform sampler2D Texture;
+uniform int IsImgui;
 in vec2 Frag_UV;
 in vec4 Frag_Color;
 out vec4 Out_Color;
 void main()
 {
 	// Out_Color = Frag_Color;
-	Out_Color = vec4(Frag_Color.rgb, Frag_Color.a * texture( Texture, Frag_UV.st).r);
+	if (IsImgui == 1) {
+		Out_Color = vec4(Frag_Color.rgb, Frag_Color.a * texture( Texture, Frag_UV.st).r);
+	} else {
+		Out_Color = vec4(texture(Texture, Frag_UV.st).rgb, 1.0f);
+	}
 	// Out_Color = Frag_Color * texture( Texture, Frag_UV.st).r;
 	// Out_Color = vec4(texture(Texture, Frag_UV.st).rgb, Frag_Color.a * texture( Texture, Frag_UV.st).r);
-	//Out_Color = vec4(texture(Texture, Frag_UV.st).rgb, 1.0f);
+	// Out_Color = vec4(texture(Texture, Frag_UV.st).rgb, 1.0f);
 	// Out_Color = vec4(texture(Texture, Frag_UV.st).rgb, Frag_Color.a)
 }
 `
@@ -269,6 +291,7 @@ void main()
 
 	renderer.attribLocationTex = gl.GetUniformLocation(renderer.shaderHandle, gl.Str("Texture"+"\x00"))
 	renderer.attribLocationProjMtx = gl.GetUniformLocation(renderer.shaderHandle, gl.Str("ProjMtx"+"\x00"))
+	renderer.attribLocationIsImgui = gl.GetUniformLocation(renderer.shaderHandle, gl.Str("IsImgui"+"\x00"))
 	renderer.attribLocationPosition = gl.GetAttribLocation(renderer.shaderHandle, gl.Str("Position"+"\x00"))
 	renderer.attribLocationUV = gl.GetAttribLocation(renderer.shaderHandle, gl.Str("UV"+"\x00"))
 	renderer.attribLocationColor = gl.GetAttribLocation(renderer.shaderHandle, gl.Str("Color"+"\x00"))

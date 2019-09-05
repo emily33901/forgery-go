@@ -2,11 +2,12 @@
 #extension GL_OES_standard_derivatives : enable
 
 uniform float lineWidth;
-uniform vec4 color;
+// uniform vec4 color;
 uniform float blendFactor; //1.5..2.5
 
 in vec3 coord;
 in vec3 bary;
+in vec4 color;
 
 out vec4 fragCol;
 

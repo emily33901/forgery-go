@@ -133,6 +133,12 @@ func (compositor *Compositor) ComposeScene() *Composition {
 			sceneComposition.AddNormal(sMesh.Normals()...)
 			sceneComposition.AddUV(sMesh.UVs()...)
 
+			colors := []float32{}
+			for i := 0; i < len((sMesh.Vertices()))/3; i++ {
+				colors = append(colors, sMesh.Colors()...)
+			}
+			sceneComposition.AddColor(colors...)
+
 			matVertCount += len(sMesh.Vertices()) / 3
 		}
 

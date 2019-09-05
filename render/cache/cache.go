@@ -6,12 +6,12 @@ import (
 	"sync"
 
 	"github.com/emily33901/go-forgery/render/lazy"
+	"github.com/emily33901/gosigl"
 	"github.com/emily33901/lambda-core/core/filesystem"
 	"github.com/emily33901/lambda-core/core/loader/material"
 	"github.com/emily33901/lambda-core/core/logger"
 	material2 "github.com/emily33901/lambda-core/core/material"
 	"github.com/emily33901/lambda-core/core/resource"
-	"github.com/emily33901/gosigl"
 )
 
 var textureLookup map[string]gosigl.TextureBindingId
@@ -151,6 +151,8 @@ func LoadAllKnownMaterials(fs filesystem.IFileSystem, texDone chan struct{}) int
 	material.LoadErrorMaterial()
 
 	// First get all the materials
+	// @TODO: these shouldn't fail
+	// BUT THEY DO!
 	materials := make([]string, 0, 2048)
 	for _, x := range fs.AllPaths() {
 		if strings.Index(x, "materials/") != -1 {

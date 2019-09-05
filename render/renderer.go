@@ -34,7 +34,6 @@ type Renderer struct {
 
 	// @TODO: dont export these
 	WinSize     [2]float32
-	LineColor   [4]float32
 	LineWidth   float32
 	BlendFactor float32
 	Fov         float32
@@ -54,10 +53,10 @@ func (renderer *Renderer) StartFrame() {
 	// gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 }
 
-func (renderer *Renderer) BindCamera(cam *entity.Camera) {
+func (renderer *Renderer) BindCamera(cam *entity.Camera, aspectRatio float32) {
 	model := cam.ModelMatrix()
 	view := cam.ViewMatrix()
-	proj := cam.ProjectionMatrix()
+	proj := cam.ProjectionMatrix(aspectRatio)
 
 	renderer.Fov = cam.Fov()
 
@@ -78,9 +77,10 @@ func (renderer *Renderer) beginRender(renderType int) {
 		renderer.shaders[ModeWireFrame].UseProgram()
 
 		renderer.adapter.SendUniformFloat(renderer.uniforms[ModeWireFrame]["lineWidth"], &renderer.LineWidth)
-		renderer.adapter.SendUniformVec4(renderer.uniforms[ModeWireFrame]["color"], &renderer.LineColor[0])
+		//renderer.adapter.SendUniformVec4(renderer.uniforms[ModeWireFrame]["color"], &renderer.LineColor[0])
 		renderer.adapter.SendUniformFloat(renderer.uniforms[ModeWireFrame]["blendFactor"], &renderer.BlendFactor)
 
+		// gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
 		gl.Disable(gl.DEPTH_TEST)
 		gl.Disable(gl.CULL_FACE)
 	case ModeTextured:
@@ -127,17 +127,15 @@ func (renderer *Renderer) DrawComposition(composition *Composition, mesh *gosigl
 	gosigl.BindMesh(renderer.AxisMesh)
 	renderer.adapter.Error()
 
-	oldLineColor := renderer.LineColor
-
 	for i, matObj := range renderer.AxisComposition.MaterialMeshes() {
 		// We dont need to lookup textures here. There wont be any
 
-		renderer.LineColor = [4]float32{0, 0, 0, 1}
-		renderer.LineColor[i] = 1.0
+		tempLineColor := [4]float32{0, 0, 0, 1}
+		tempLineColor[i] = 1.0
 
 		renderer.beginRender(ModeWireFrame)
 
-		renderer.adapter.SendUniformVec4(renderer.uniforms[ModeWireFrame]["color"], &renderer.LineColor[0])
+		renderer.adapter.SendUniformVec4(renderer.uniforms[ModeWireFrame]["color"], &tempLineColor[0])
 
 		{
 			renderer.adapter.DrawTriangleArray(matObj.Offset(), matObj.Length())
@@ -145,8 +143,6 @@ func (renderer *Renderer) DrawComposition(composition *Composition, mesh *gosigl
 		}
 		renderer.endRender(ModeWireFrame)
 	}
-
-	renderer.LineColor = oldLineColor
 }
 
 func NewRenderer(adapter Adapter) *Renderer {
@@ -163,41 +159,9 @@ func NewRenderer(adapter Adapter) *Renderer {
 
 	tempMesh := mesh.NewMesh()
 	tempMesh.SetMaterial(material.NewMaterial("editor/wireframe1"))
-	tempMesh.AddVertex(64, 0, 0)
-	tempMesh.AddVertex(0, 0, 4)
-	tempMesh.AddVertex(0, 0, 0)
-	tempMesh.AddNormal(0, 0, 0)
-	tempMesh.AddNormal(0, 0, 0)
-	tempMesh.AddNormal(0, 0, 0)
-	tempMesh.AddUV(0, 0)
-	tempMesh.AddUV(0, 0)
-	tempMesh.AddUV(0, 0)
-	tempCompositor.AddMesh(tempMesh)
-
-	tempMesh = mesh.NewMesh()
-	tempMesh.SetMaterial(material.NewMaterial("editor/wireframe2"))
-	tempMesh.AddVertex(0, 64, 0)
-	tempMesh.AddVertex(4, 0, 0)
-	tempMesh.AddVertex(0, 0, 0)
-	tempMesh.AddNormal(0, 0, 0)
-	tempMesh.AddNormal(0, 0, 0)
-	tempMesh.AddNormal(0, 0, 0)
-	tempMesh.AddUV(0, 0)
-	tempMesh.AddUV(0, 0)
-	tempMesh.AddUV(0, 0)
-	tempCompositor.AddMesh(tempMesh)
-
-	tempMesh = mesh.NewMesh()
-	tempMesh.SetMaterial(material.NewMaterial("editor/wireframe3"))
-	tempMesh.AddVertex(0, 0, 64)
-	tempMesh.AddVertex(0, 4, 0)
-	tempMesh.AddVertex(0, 0, 0)
-	tempMesh.AddNormal(0, 0, 0)
-	tempMesh.AddNormal(0, 0, 0)
-	tempMesh.AddNormal(0, 0, 0)
-	tempMesh.AddUV(0, 0)
-	tempMesh.AddUV(0, 0)
-	tempMesh.AddUV(0, 0)
+	tempMesh.AddLine([]float32{1, 0, 0, 1}, []float32{64, 0, 0}, []float32{0, 0, 0})
+	tempMesh.AddLine([]float32{0, 1, 0, 1}, []float32{0, 64, 0}, []float32{0, 0, 0})
+	tempMesh.AddLine([]float32{0, 0, 1, 1}, []float32{0, 0, 64}, []float32{0, 0, 0})
 	tempCompositor.AddMesh(tempMesh)
 
 	renderer.AxisComposition = tempCompositor.ComposeScene()
@@ -205,6 +169,7 @@ func NewRenderer(adapter Adapter) *Renderer {
 	gosigl.CreateVertexAttributeArrayBuffer(sceneMesh, renderer.AxisComposition.Normals(), 3)
 	gosigl.CreateVertexAttributeArrayBuffer(sceneMesh, renderer.AxisComposition.UVs(), 2)
 	gosigl.CreateVertexAttributeArrayBuffer(sceneMesh, renderer.AxisComposition.Tangents(), 3)
+	gosigl.CreateVertexAttributeArrayBuffer(sceneMesh, renderer.AxisComposition.Colors(), 4)
 	gosigl.FinishMesh()
 
 	renderer.AxisMesh = sceneMesh

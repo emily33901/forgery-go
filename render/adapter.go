@@ -59,6 +59,7 @@ type Adapter interface {
 	SendUniformVec3(uniform int32, float *float32)
 	SendUniformVec2(uniform int32, float *float32)
 	SendUniformVec4(uniform int32, float *float32)
+	SendUniformBool(uniform int32, b bool)
 
 	Error() bool
 }

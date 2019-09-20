@@ -4,6 +4,8 @@ replace github.com/emily33901/lambda-core => ../lambda-core
 
 replace github.com/emily33901/imgui-go => ../imgui-go
 
+replace github.com/emily33901/gosigl => ../gosigl
+
 require (
 	github.com/emily33901/gosigl v0.0.0-20190613135652-5ab578f1e6c9
 	github.com/emily33901/imgui-go v1.9.1-0.20190617182748-2a8c4e8ccf73

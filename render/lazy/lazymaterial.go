@@ -80,7 +80,7 @@ func LoadSingleLazyMaterial(filePath string, fs filesystem.IFileSystem) material
 	return resource.Manager().Material(resource.Manager().ErrorTextureName())
 }
 
-// @TODO vmt.go should expose these so that i dont have to copy them here
+// TODO vmt.go should expose these so that i dont have to copy them here
 
 func readVmt(path string, fs filesystem.IFileSystem) (material.IMaterial, error) {
 	kvs, err := keyvalues2.ReadKeyValues(path, fs)

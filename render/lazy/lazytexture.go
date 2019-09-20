@@ -86,7 +86,7 @@ func (tex *TextureLazy2D) EvictFromMainMemory() {
 
 // NewTexture2D returns a new texture from Vtf
 func NewLazyTexture(filePath string, fs filesystem.IFileSystem, width int, height int) *TextureLazy2D {
-	// @TODO: we should be able to load the vtf all by ourselves!
+	// TODO: we should be able to load the vtf all by ourselves!
 	return &TextureLazy2D{
 		fileSystem: fs,
 		filePath:   filePath,
@@ -114,7 +114,7 @@ func LoadLazyTexture(filePath string, fs filesystem.IFileSystem) texture.ITextur
 	return mat
 }
 
-// @TODO: these should be exposed from texture.go so I dont have to paste them here!
+// TODO: these should be exposed from texture.go so I dont have to paste them here!
 
 // readVtf
 func readVtf(path string, fs filesystem.IFileSystem) (texture.ITexture, error) {
@@ -124,7 +124,7 @@ func readVtf(path string, fs filesystem.IFileSystem) (texture.ITexture, error) {
 		return nil, err
 	}
 
-	// @TODO this will load the WHOLE texture from the disk
+	// TODO this will load the WHOLE texture from the disk
 	// when we only really want the header!
 
 	header, err := vtf.ReadHeaderFromStream(stream)

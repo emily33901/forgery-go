@@ -253,7 +253,7 @@ func loadSolid(node *vmf.Node) (*world.Solid, error) {
 			return nil, err
 		}
 
-		sides[idx] = *world.NewSide(int(id), plane, material, u, v, rotation, lmScale, smoothing)
+		sides[idx] = *world.NewSide(int(id), plane, material, u, v, float32(rotation), float32(lmScale), smoothing)
 	}
 
 	return world.NewSolid(int(id), sides, nil), nil

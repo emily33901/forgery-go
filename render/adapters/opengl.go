@@ -229,6 +229,13 @@ func (ogl *OpenGL) SendUniformVec2(uniform int32, float *float32) {
 func (ogl *OpenGL) SendUniformVec4(uniform int32, float *float32) {
 	gl.Uniform4fv(uniform, 1, float)
 }
+func (ogl *OpenGL) SendUniformBool(uniform int32, b bool) {
+	if b == true {
+		gl.Uniform1i(uniform, 1)
+	} else {
+		gl.Uniform1i(uniform, 0)
+	}
+}
 
 func (ogl *OpenGL) Error() bool {
 	if err := gl.GetError(); err != 0 {

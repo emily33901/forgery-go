@@ -6,9 +6,10 @@ import (
 	"github.com/emily33901/lambda-core/core/filesystem"
 )
 
-func RenderMaterialsWindow(fs filesystem.IFileSystem, shouldOpen *bool) {
+func RenderMaterialsWindow(fs filesystem.IFileSystem, shouldOpen *bool, materialSelected func(string)) {
 	if imgui.BeginV("Materials", shouldOpen, 0) {
-		if imgui.BeginChild("Materials Scrollable") {
+		areaAvailable := imgui.ContentRegionAvail()
+		if imgui.BeginChildV("Materials Scrollable", areaAvailable.Minus(imgui.Vec2{0, 100}), false, 0) {
 			startCursorPos := imgui.ScrollY()
 			contentSize := imgui.ContentRegionAvail()
 			contentEnd := startCursorPos + contentSize.Y
@@ -23,7 +24,7 @@ func RenderMaterialsWindow(fs filesystem.IFileSystem, shouldOpen *bool) {
 			rowi := 0
 			coli := 0
 
-			// @TODO we should be caching these results!!!!
+			// TODO we should be caching these results!!!!
 			materials := cache.GetMaterials()
 
 			for _, k := range materials {
@@ -31,12 +32,21 @@ func RenderMaterialsWindow(fs filesystem.IFileSystem, shouldOpen *bool) {
 					float32((rowi-2)*totalSize) < contentEnd {
 
 					imgui.PushID(k)
-					imgui.PushTextWrapPosV(float32(coli * thumbSize))
+					imgui.PushTextWrapPosV(float32((coli + 1) * totalSize))
 					{
+						// Image
 						pos := imgui.CursorPos()
-						imgui.Image(oglToImguiTextureId(uint32(cache.LookupTexture(fs, k))), imgui.Vec2{thumbSize, thumbSize})
+						imgui.Image(cache.OglToImguiTextureId(uint32(cache.LookupTexture(fs, k))), imgui.Vec2{thumbSize, thumbSize})
+
+						// Text
 						imgui.SetCursorPos(pos)
-						imgui.SelectableV(k, false, 0, imgui.Vec2{thumbSize, thumbSize})
+						imgui.Text(k)
+
+						// Selectable
+						imgui.SetCursorPos(pos)
+						if imgui.SelectableV("", false, 0, imgui.Vec2{thumbSize, thumbSize}) {
+							materialSelected(k)
+						}
 					}
 					imgui.PopTextWrapPos()
 					imgui.PopID()
@@ -45,7 +55,7 @@ func RenderMaterialsWindow(fs filesystem.IFileSystem, shouldOpen *bool) {
 				}
 				oldCursor := imgui.CursorPos()
 
-				if contentSize.X < float32((coli+2)*thumbSize) {
+				if contentSize.X < float32((coli+2)*totalSize) {
 					imgui.SetCursorPos(oldCursor)
 					coli = 0
 					rowi++

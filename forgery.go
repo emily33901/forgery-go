@@ -73,7 +73,7 @@ type ForgeryContext struct {
 	showMaterialsWindow bool
 	showInfoOverlay     bool
 
-	// @TODO these really shouldnt be here!
+	// TODO these really shouldnt be here!
 	cameraSens     float32
 	cameraMoveSens float32
 
@@ -82,6 +82,9 @@ type ForgeryContext struct {
 	texturesLoadedExpected      int
 	texturesLoadingCompleteChan chan struct{}
 	texturesLoadingComplete     bool
+
+	// Which texture is currently active from the materials window
+	selectedTexture string
 }
 
 func (f *ForgeryContext) RenderScene() {
@@ -149,7 +152,7 @@ func (f *ForgeryContext) RenderUI() {
 						panic(err)
 					}
 
-					// @TODO we need to clean up the old scene and cameras and associated data
+					// TODO we need to clean up the old scene and cameras and associated data
 
 					f.activeMap = newMap
 					f.documentLoaded = true
@@ -173,7 +176,7 @@ func (f *ForgeryContext) RenderUI() {
 				imgui.EndMenu()
 			}
 			if imgui.MenuItem("Quit") {
-				// @TODO: NEVER DO THIS AAARRRGHHH
+				// TODO: NEVER DO THIS AAARRRGHHH
 				os.Exit(0)
 			}
 
@@ -208,9 +211,10 @@ func (f *ForgeryContext) RenderUI() {
 	}
 
 	if f.showMaterialsWindow {
-		windows.RenderMaterialsWindow(f.filesystem, &f.showMaterialsWindow)
+		windows.RenderMaterialsWindow(f.filesystem, &f.showMaterialsWindow, f.ChangeSelectedTexture)
 	}
 
+	// TODO: factorise out
 	if f.showInfoOverlay {
 		const overlayDistanceX = 10.0
 		const overlayDistanceY = 30.0
@@ -271,6 +275,18 @@ func (f *ForgeryContext) RenderUI() {
 			imgui.Text(fmt.Sprintf("Average FPS: %f", totalFps/float64(len(f.fpsHistory))))
 			imgui.Separator()
 
+			imgui.Text(fmt.Sprintf("Selected Texture: %s", f.selectedTexture))
+
+			tex, found := cache.LookupTextureNoLoad(f.selectedTexture)
+
+			if !found {
+				logger.Warn("Unable to find texture for overlay - this really should not happen!")
+			}
+
+			if imgui.ImageButton(cache.OglToImguiTextureId(uint32(tex)), imgui.Vec2{128, 128}) {
+				f.showMaterialsWindow = true
+			}
+
 			if imgui.BeginPopupContextWindow() {
 				if imgui.MenuItemV("Custom", "", f.overlayCorner == -1, true) {
 					f.overlayCorner = -1
@@ -320,6 +336,10 @@ func (f *ForgeryContext) CleanupWindows() {
 	}
 }
 
+func (f *ForgeryContext) ChangeSelectedTexture(newTex string) {
+	f.selectedTexture = newTex
+}
+
 func (f *ForgeryContext) Run() {
 	clearColor := [4]float32{0.1, 0.1, 0.1, 1.0}
 
@@ -346,7 +366,7 @@ func (f *ForgeryContext) Run() {
 		f.imguiRenderer.Render(f.platform.DisplaySize(), f.platform.FramebufferSize(), imgui.RenderedDrawData())
 		f.platform.PostRender()
 
-		// @TODO: we should get some method of capping fps
+		// TODO: we should get some method of capping fps
 		// but this is not that!
 		// <-time.After(time.Millisecond * 10)
 	}
@@ -397,7 +417,7 @@ func (f *ForgeryContext) NewApp() {
 		panic(err)
 	}
 
-	// @TODO We need to load our settings from a file somehow!
+	// TODO We need to load our settings from a file somehow!
 
 	f.cameraSens = 4
 	f.cameraMoveSens = 4
@@ -412,7 +432,7 @@ func (f *ForgeryContext) NewApp() {
 
 	cache.InitTextureLookup()
 
-	// @TODO Dont do this on the same thread doh
+	// TODO Dont do this on the same thread doh
 	f.texturesLoadingCompleteChan = make(chan struct{}, 1000)
 	f.texturesLoadedExpected = cache.LoadAllKnownMaterials(f.filesystem, f.texturesLoadingCompleteChan)
 
@@ -420,8 +440,9 @@ func (f *ForgeryContext) NewApp() {
 	f.imguiRenderer = imguiRenderer
 
 	// TODO: Dont just load this default
+	// TODO methods of handling multiple open docs at the same time!
 	{
-		newMap, err := formats.LoadVmf("assets/default_cs.vmf")
+		newMap, err := formats.LoadVmf("assets/default_cs_small.vmf")
 
 		if err != nil {
 			panic(err)

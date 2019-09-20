@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/emily33901/lambda-core/core/model"
+
+	"github.com/emily33901/lambda-core/core/math"
+
 	"github.com/emily33901/go-forgery/formats"
 	"github.com/emily33901/go-forgery/native"
 	"github.com/emily33901/go-forgery/render"
@@ -12,10 +16,32 @@ import (
 	"github.com/emily33901/lambda-core/core/entity"
 	"github.com/emily33901/lambda-core/core/filesystem"
 	"github.com/emily33901/lambda-core/core/logger"
+	"github.com/emily33901/lambda-core/core/material"
 	"github.com/go-gl/mathgl/mgl32"
 )
 
-// @TODO this is a MASSIVE hack
+func igToMglVec2(v imgui.Vec2) mgl32.Vec2 {
+	return mgl32.Vec2{v.X, v.Y}
+}
+
+type selectionResult struct {
+	model *model.Model
+	depth float32
+}
+
+func createAxesObject() *render.MeshHelper {
+	helper := render.NewMeshHelper()
+	mesh := helper.Mesh()
+
+	mesh.SetMaterial(material.NewMaterial("editor/axes"))
+	mesh.AddLine([]float32{1, 0, 0, 1}, mgl32.Vec3{64, 0, 0}, mgl32.Vec3{0, 0, 0})
+	mesh.AddLine([]float32{0, 1, 0, 1}, mgl32.Vec3{0, 64, 0}, mgl32.Vec3{0, 0, 0})
+	mesh.AddLine([]float32{0, 0, 1, 1}, mgl32.Vec3{0, 0, 64}, mgl32.Vec3{0, 0, 0})
+
+	return helper
+}
+
+// TODO this is a MASSIVE hack
 var cameraControlFrame int
 
 type SceneWindow struct {
@@ -45,6 +71,19 @@ type SceneWindow struct {
 	inMove        bool
 
 	renderType int
+
+	// TODO: needs to be replaced with a smarter structure
+	selectionInProgress bool
+	selectionToMake     mgl32.Vec2
+	selectionResults    map[mgl32.Vec3]selectionResult
+	selectionResult     selectionResult
+	segmentRay          mgl32.Vec3
+	segmentOrigin       mgl32.Vec3
+
+	selectedMeshHelper *render.MeshHelper
+
+	selectionMesh *render.MeshHelper
+	axesMesh      *render.MeshHelper
 }
 
 func oglToImguiTextureId(id uint32) imgui.TextureID {
@@ -65,21 +104,28 @@ func NewSceneWindow(fs filesystem.IFileSystem,
 	scene.AddCamera(newCamera, camera)
 
 	r := &SceneWindow{
-		filesystem:      fs,
-		graphicsAdapter: adapter,
-		renderer:        renderer,
-		scene:           scene,
-		camera:          camera,
-		width:           width,
-		height:          height,
-		cameraSens:      cameraSens,
-		cameraMoveSens:  cameraMoveSens,
-		windowId:        fmt.Sprintf("Scene view %d", windowId),
-		platform:        platform,
-		renderType:      0,
-		open:            true,
+		filesystem:         fs,
+		graphicsAdapter:    adapter,
+		renderer:           renderer,
+		scene:              scene,
+		camera:             camera,
+		width:              width,
+		height:             height,
+		cameraSens:         cameraSens,
+		cameraMoveSens:     cameraMoveSens,
+		windowId:           fmt.Sprintf("Scene view %d", windowId),
+		platform:           platform,
+		renderType:         0,
+		open:               true,
+		selectionMesh:      render.NewMeshHelper(),
+		axesMesh:           createAxesObject(),
+		selectionResults:   make(map[mgl32.Vec3]selectionResult),
+		selectedMeshHelper: render.NewMeshHelper(),
 	}
 
+	r.SelectionChanged()
+
+	// TODO: this is only used by the old line renderer
 	renderer.LineWidth = 3
 
 	return r
@@ -88,8 +134,56 @@ func NewSceneWindow(fs filesystem.IFileSystem,
 func (window *SceneWindow) Initialize() {
 	window.window = view.NewRenderWindow(window.graphicsAdapter, window.width, window.height)
 	window.renderer.Initialize()
+}
 
-	// window.renderer.BindShader(window.graphicsAdapter.LoadSimpleShader("assets/shaders/UnlitWireframe"))
+// SelectionChanged handles updating what meshes have been selected
+func (window *SceneWindow) SelectionChanged() {
+	window.selectionMesh.ResetMesh()
+	m := window.selectionMesh.Mesh()
+	m.SetMaterial(material.NewMaterial("editor/selectionsquare"))
+
+	color := []float32{1, 0, 0, 1}
+	selectionColor := []float32{1, 0, 0, 0.5}
+
+	if len(window.selectionResults) > 0 {
+		for origin := range window.selectionResults {
+			x := origin[0]
+			y := origin[1]
+			z := origin[2]
+
+			// TODO: better mesh builder
+
+			m.AddLine(color, mgl32.Vec3{x + 64, y, z}, origin)
+			m.AddLine(color, mgl32.Vec3{x, y + 64, z}, origin)
+			m.AddLine(color, mgl32.Vec3{x, y, z + 64}, origin)
+			m.AddLine(color, mgl32.Vec3{x, y, z - 64}, origin)
+			m.AddLine(color, mgl32.Vec3{x, y - 64, z}, origin)
+			m.AddLine(color, mgl32.Vec3{x - 64, y, z}, origin)
+		}
+	}
+
+	// Select the mesh that is selected
+	if window.selectionResult.model != nil {
+		window.selectedMeshHelper.ResetMesh()
+
+		for _, m := range window.selectionResult.model.Meshes() {
+			window.selectedMeshHelper.AddMesh(m)
+		}
+
+		newColors := make([]float32, 0, len(m.Vertices())*4)
+		for range m.Vertices() {
+			newColors = append(newColors, selectionColor...)
+		}
+
+		window.selectedMeshHelper.Mesh().ResetColors(newColors...)
+	}
+
+	endPoint := window.segmentOrigin.Add(window.segmentRay)
+
+	m.AddLine(color, window.segmentOrigin, endPoint)
+
+	window.selectionResults = make(map[mgl32.Vec3]selectionResult)
+	window.selectionInProgress = false
 }
 
 func (window *SceneWindow) RenderScene() {
@@ -107,21 +201,99 @@ func (window *SceneWindow) RenderScene() {
 		window.renderer.BindCamera(c, window.wSize.X/window.wSize.Y)
 	}
 
-	// @TODO: this isnt used...
-	window.renderer.BlendFactor = 2.0
-
-	// window.renderer.BindCamera(window.scene.ActiveCamera())
-	// if window.window.Width() != int(window.wSize.X) {
-	// 	window.window.SetSize(int(window.wSize.X), int(window.wSize.Y))
-	// }
 	window.window.Bind(window.wSize.X, window.wSize.Y)
 	window.renderer.DrawComposition(window.scene.FrameComposed, window.scene.Composition(), window.renderType)
 	window.graphicsAdapter.Error()
+
+	// TODO: this no longer has to be done here!
+	if window.selectionInProgress {
+		logger.Notice("Processing selection!")
+		// Handle object selection
+
+		aspect := window.wSize.X / window.wSize.Y
+
+		view := window.Camera().ViewMatrix()
+		proj := window.Camera().ProjectionMatrix(aspect)
+
+		// Get the point clicked on both the near and far planes
+		// and then work out the line between them
+		segmentVec := window.Camera().ScreenToWorld(window.selectionToMake.Vec3(1.0), igToMglVec2(window.wSize), aspect)
+		segmentOrigin := window.Camera().ScreenToWorld(window.selectionToMake.Vec3(0.5), igToMglVec2(window.wSize), aspect)
+
+		segmentVec = segmentVec.Sub(segmentOrigin)
+
+		window.segmentOrigin = segmentOrigin
+		window.segmentRay = segmentVec
+
+		//minz := 1.0
+
+		// TODO make selectionresults into a local array and pass to selectionchanged
+
+		for _, m := range window.scene.SolidMeshes {
+			for _, mesh := range m.Meshes() {
+				// Collide with meshes that are made of triangles
+				// TODO: we could do with a more robust way of knowing this
+				if len(mesh.Vertices())%3 == 0 {
+					verts := mesh.Vertices()
+					// Transform all verticies
+					for i := 0; i < len(verts); i += 3 {
+						point, didCollide := math.IntersectSegmentTriangle(segmentOrigin, segmentVec, verts[0], verts[1], verts[2])
+
+						if !didCollide {
+							continue
+						}
+
+						// We need to project the point to get the depth of the collision
+						depth := mgl32.Project(point, view, proj, 0, 0, int(window.wSize.X), int(window.wSize.Y))
+
+						window.selectionResults[point] = selectionResult{m, depth.Z()}
+					}
+				}
+			}
+		}
+
+		// Sort the slection points
+		// we are looking for the one that is closest to the camera (lowest Z)
+
+		minResult := mgl32.Vec3{0, 0, 0}
+
+		for k := range window.selectionResults {
+			minResult = k
+			break
+		}
+
+		for point, result := range window.selectionResults {
+			if result.depth < window.selectionResults[minResult].depth {
+				minResult = point
+			}
+		}
+
+		window.selectionResult = window.selectionResults[minResult]
+
+		window.SelectionChanged()
+	}
+
+	// Render other misc items (axes, selectionpoint)...
+
+	window.renderer.DrawMeshHelper(window.axesMesh, render.ModeWireFrame)
+	window.graphicsAdapter.Error()
+
+	if window.selectionMesh.Valid() {
+		window.renderer.DrawMeshHelper(window.selectionMesh, render.ModeWireFrame)
+		window.graphicsAdapter.Error()
+	}
+
+	if window.selectedMeshHelper.Valid() {
+		window.renderer.DrawMeshHelper(window.selectedMeshHelper, render.ModeFlat)
+		window.graphicsAdapter.Error()
+	}
+
 	window.window.Unbind()
 }
 
 func (window *SceneWindow) Render(deltaTime float32) {
 	// Dont render if we have been closed
+	// We will get cleaned up by Forgery{} at the beginning of next frame
 	if !window.open {
 		logger.Notice("Scene window closed!")
 		window.window.Close()
@@ -183,7 +355,7 @@ func (window *SceneWindow) Render(deltaTime float32) {
 					window.Camera().SetPos(mgl32.Vec3{0, 0, 0})
 				}
 
-				// @TODO: The renderer really should not know about any of these params...
+				// TODO: The renderer really should not know about any of these params...
 				imgui.DragFloatV("Line Width", &window.renderer.LineWidth, 0.01, 0.001, 5, "%f", 1)
 
 				imgui.EndMenu()
@@ -210,7 +382,7 @@ func (window *SceneWindow) Render(deltaTime float32) {
 		aspect := wSize.X / wSize.Y
 		// window.Camera().SetAspect(aspect)
 
-		// @TODO change 4000 to the framebuffer size
+		// TODO change 4000 to the framebuffer size
 
 		imgui.ImageButtonV(oglToImguiTextureId(window.window.BufferId()),
 			wSize, //imgui.Vec2{X: wSize.X, Y: wSize.Y},
@@ -269,6 +441,13 @@ func (window *SceneWindow) Render(deltaTime float32) {
 				window.Camera().Zoom(scrollDelta)
 				window.Camera().Rotate(-delta.X/180, 0, -delta.Y/180)
 			}
+
+			if imgui.IsItemHovered() && !window.selectionInProgress && imgui.IsMouseClicked(0) {
+				window.selectionInProgress = true
+				curCursorPos := imgui.CurrentIO().MousePos()
+				windowPos := curCursorPos.Minus(wPos)
+				window.selectionToMake = mgl32.Vec2{windowPos.X, wSize.Y - windowPos.Y}
+			}
 		} else if imgui.IsItemHovered() {
 			// 2D view
 			realDragDelta := imgui.MouseDragDeltaV(2, 0)
@@ -276,7 +455,7 @@ func (window *SceneWindow) Render(deltaTime float32) {
 			dragDelta := realDragDelta.Minus(window.lastMouseDrag)
 			window.lastMouseDrag = realDragDelta
 			if realDragDelta.X != 0 || realDragDelta.Y != 0 {
-				// @TODO this probably shouldnt be done here
+				// TODO this probably shouldnt be done here
 
 				// every 1 pixel has to be scaled by the window size and the camera zoom
 				xScale := (window.Camera().OrthoZoom() / wSize.X) * aspect

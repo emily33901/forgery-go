@@ -7,6 +7,7 @@ import (
 
 	"github.com/emily33901/go-forgery/render/lazy"
 	"github.com/emily33901/gosigl"
+	"github.com/emily33901/imgui-go"
 	"github.com/emily33901/lambda-core/core/filesystem"
 	"github.com/emily33901/lambda-core/core/loader/material"
 	"github.com/emily33901/lambda-core/core/logger"
@@ -70,6 +71,12 @@ func BindTexture(fs filesystem.IFileSystem, name string) gosigl.TextureBindingId
 	logger.Notice("Bound texture %s", name)
 
 	return newTex
+}
+
+// OglToImguiTextureId converts a texture that is represented by ogl
+// to one that can be presented by imgui
+func OglToImguiTextureId(id uint32) imgui.TextureID {
+	return imgui.TextureID(uint64(id) | (1 << 32))
 }
 
 // LookupTexture tries to get an individual texture or
@@ -151,7 +158,7 @@ func LoadAllKnownMaterials(fs filesystem.IFileSystem, texDone chan struct{}) int
 	material.LoadErrorMaterial()
 
 	// First get all the materials
-	// @TODO: these shouldn't fail
+	// TODO: these shouldn't fail
 	// BUT THEY DO!
 	materials := make([]string, 0, 2048)
 	for _, x := range fs.AllPaths() {
@@ -166,7 +173,7 @@ func LoadAllKnownMaterials(fs filesystem.IFileSystem, texDone chan struct{}) int
 	}
 
 	// Then chunk that array up
-	const chunkCount = 8
+	const chunkCount = 16
 	chunkSize := len(materials) / chunkCount
 	chunks := make([][]string, 0, chunkCount)
 

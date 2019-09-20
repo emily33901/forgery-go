@@ -2,13 +2,55 @@ package render
 
 import (
 	"github.com/emily33901/lambda-core/core/mesh"
+	"github.com/emily33901/lambda-core/core/mesh/util"
+	"github.com/go-gl/mathgl/mgl32"
 )
 
 type Composition struct {
-	mesh.Mesh
+	Vertices             []float32
+	Normals              []float32
+	UVs                  []float32
+	Tangents             []float32
+	LightmapCoordinates  []float32
+	Colors               []float32
 	materialCompositions []*compositionMesh
 
 	indices []uint32
+}
+
+// AddVertex
+func (mesh *Composition) AddVertex(vertex []mgl32.Vec3) {
+	for _, x := range vertex {
+		mesh.Vertices = append(mesh.Vertices, x.X(), x.Y(), x.Z())
+	}
+}
+
+// AddNormal
+func (mesh *Composition) AddNormal(normal []mgl32.Vec3) {
+	for _, x := range normal {
+		mesh.Normals = append(mesh.Normals, x.X(), x.Y(), x.Z())
+	}
+}
+
+// AddUV
+func (mesh *Composition) AddUV(uv []mgl32.Vec2) {
+	for _, x := range uv {
+		mesh.UVs = append(mesh.UVs, x.X(), x.Y())
+	}
+}
+
+// AddTangent
+func (mesh *Composition) AddTangent(tangent []mgl32.Vec4) {
+	for _, x := range tangent {
+		mesh.Tangents = append(mesh.Tangents, x.X(), x.Y(), x.Z(), x.W())
+	}
+}
+
+// AddLightmapCoordinate
+func (mesh *Composition) AddLightmapCoordinate(uv []mgl32.Vec3) {
+	for _, x := range uv {
+		mesh.LightmapCoordinates = append(mesh.LightmapCoordinates, x.X(), x.Y(), x.Z())
+	}
 }
 
 // Compose constructs the indices information for the current state of the Composition
@@ -33,6 +75,14 @@ func (comp *Composition) Indices() []uint32 {
 // AddMesh
 func (comp *Composition) AddMesh(mat *compositionMesh) {
 	comp.materialCompositions = append(comp.materialCompositions, mat)
+}
+
+func (mesh *Composition) AddColor(colors ...float32) {
+	mesh.Colors = append(mesh.Colors, colors...)
+}
+
+func (comp *Composition) GenerateTangents() {
+	comp.Tangents = util.GenerateTangentsOld(comp.Vertices, comp.Normals, comp.UVs)
 }
 
 // NewComposition returns a new Composition.
@@ -114,6 +164,11 @@ func (compositor *Compositor) ComposeScene() *Composition {
 
 	// Step 1. Map meshes into contiguous groups by texture
 	for idx, m := range compositor.meshes {
+		if m.Material() == nil {
+			texMappings["nil"] = append(texMappings["nil"], compositor.meshes[idx])
+			continue
+		}
+
 		if _, ok := texMappings[m.Material().FilePath()]; !ok {
 			texMappings[m.Material().FilePath()] = make([]mesh.IMesh, 0)
 		}
@@ -125,21 +180,16 @@ func (compositor *Compositor) ComposeScene() *Composition {
 	sceneComposition := NewComposition()
 	vertCount := 0
 	for key, texMesh := range texMappings {
-		// @TODO verify if this is the vertex offset of the actual array offset (vertexOffset * 3)
+		// TODO verify if this is the vertex offset of the actual array offset (vertexOffset * 3)
 		matVertOffset := vertCount
 		matVertCount := 0
 		for _, sMesh := range texMesh {
-			sceneComposition.AddVertex(sMesh.Vertices()...)
-			sceneComposition.AddNormal(sMesh.Normals()...)
-			sceneComposition.AddUV(sMesh.UVs()...)
+			sceneComposition.AddVertex(sMesh.Vertices())
+			sceneComposition.AddNormal(sMesh.Normals())
+			sceneComposition.AddUV(sMesh.UVs())
+			sceneComposition.AddColor(sMesh.Colors()...)
 
-			colors := []float32{}
-			for i := 0; i < len((sMesh.Vertices()))/3; i++ {
-				colors = append(colors, sMesh.Colors()...)
-			}
-			sceneComposition.AddColor(colors...)
-
-			matVertCount += len(sMesh.Vertices()) / 3
+			matVertCount += len(sMesh.Vertices())
 		}
 
 		sceneComposition.AddMesh(NewCompositionMesh(key, matVertOffset, matVertCount))

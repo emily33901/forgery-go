@@ -50,14 +50,15 @@ func (scene *Scene) RecomposeScene(fs filesystem.IFileSystem) *gosigl.VertexObje
 	}
 
 	scene.FrameComposed = scene.FrameCompositor.ComposeScene()
-	sceneMesh := gosigl.NewMesh(scene.FrameComposed.Vertices())
-	gosigl.CreateVertexAttributeArrayBuffer(sceneMesh, scene.FrameComposed.Normals(), 3)
-	gosigl.CreateVertexAttributeArrayBuffer(sceneMesh, scene.FrameComposed.UVs(), 2)
-	gosigl.CreateVertexAttributeArrayBuffer(sceneMesh, scene.FrameComposed.Tangents(), 3)
-	gosigl.CreateVertexAttributeArrayBuffer(sceneMesh, scene.FrameComposed.Colors(), 4)
+
+	m := gosigl.NewMesh(scene.FrameComposed.Vertices)
+	gosigl.CreateVertexAttributeArrayBuffer(m, scene.FrameComposed.Normals, 3)
+	gosigl.CreateVertexAttributeArrayBuffer(m, scene.FrameComposed.UVs, 2)
+	gosigl.CreateVertexAttributeArrayBuffer(m, scene.FrameComposed.Tangents, 4)
+	gosigl.CreateVertexAttributeArrayBuffer(m, scene.FrameComposed.Colors, 4)
 	gosigl.FinishMesh()
 
-	scene.FrameMesh = sceneMesh
+	scene.FrameMesh = m
 
 	// Make sure that we have all the textures we need
 	for _, m := range scene.FrameComposed.MaterialMeshes() {
@@ -106,15 +107,16 @@ func NewSceneFromVmf(vmf *formats.Vmf) *Scene {
 	s := NewScene()
 
 	for i := 0; i < vmf.Entities().Length(); i++ {
+		// s.AddSolid(vmf.Entities().Get(i))
 		// s.AddSolid(solid *world.Solid)
 		// widget.dispatcher.Dispatch(events.NewEntityCreated(project.Vmf.Entities().Get(i)))
 	}
 
-	for i := 0; i < len(vmf.Worldspawn().Solids); i++ {
+	for i := range vmf.Worldspawn().Solids {
 		s.AddSolid(&vmf.Worldspawn().Solids[i])
 	}
 
-	for i := 0; i < len(vmf.Cameras().CameraList); i++ {
+	for i := range vmf.Cameras().CameraList {
 		s.AddCamera(&vmf.Cameras().CameraList[i], fmt.Sprintf("Default_%d", i))
 	}
 

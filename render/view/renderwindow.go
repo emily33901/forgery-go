@@ -18,7 +18,7 @@ func (win *RenderWindow) BufferId() uint32 {
 }
 
 // Bind binds this RenderWindow(s fbo)
-// @TODO shouldnt this bind to the size of the target texture and not the size of the framebuffer
+// TODO shouldnt this bind to the size of the target texture and not the size of the framebuffer
 func (win *RenderWindow) Bind(width, height float32) {
 	win.adapter.Viewport(0, 0, int32(width), int32(height))
 	win.frameBuffer.Bind()

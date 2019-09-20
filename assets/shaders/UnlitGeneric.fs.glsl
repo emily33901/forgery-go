@@ -2,6 +2,8 @@
 
 uniform sampler2D albedoSampler;
 
+uniform bool shouldDiscard;
+
 in vec2 UV;
 in vec3 dist;
 
@@ -13,5 +15,11 @@ void AddAlbedo(inout vec4 fragColour, in sampler2D sampler, in vec2 uv)
 }
 
 void main() {
-	AddAlbedo(frag_colour, albedoSampler, UV);
+    if (shouldDiscard == false) {
+        AddAlbedo(frag_colour, albedoSampler, UV);
+
+        //discard;
+        //frag_colour = gl_Color;
+        //frag_colour.a = 0;
+    }
 }

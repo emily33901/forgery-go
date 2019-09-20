@@ -1,8 +1,8 @@
 #version 150
 
 layout(triangles) in;
-// layout(triangle_strip, max_vertices=3) out;
 layout(line_strip, max_vertices=4) out;
+// layout(triangle_strip, max_vertices=3) out;
 
 uniform mat4 projection;
 uniform mat4 view;
@@ -42,18 +42,31 @@ void main()
         out0 = 0;
         out1 = 2;
         out2 = 1;
+
+        // bary0 = vec3(1.0, 0.0, 1.0);
+        // bary1 = vec3(0.0, 1.0, 0.0);
+        // bary2 = vec3(1.0, 0.0, 1.0);
     } else if (edgeB > edgeC && edgeB > edgeA) {
         // edgeB is hyp
         out0 = 1;
         out1 = 0;
         out2 = 2;
+
+        // bary0 = vec3(0.0, 1.0, 0.0);
+        // bary1 = vec3(1.0, 0.0, 1.0);
+        // bary2 = vec3(0.0, 0.0, 1.0);
     } else {
         // edgeC is hyp
         out0 = 2;
         out1 = 1;
         out2 = 0;
+
+        // bary0 = vec3(0.0, 0.0, 1.0);
+        // bary1 = vec3(0.0, 1.0, 0.0);
+        // bary2 = vec3(1.0, 0.0, 0.0);
     }
 
+#if 1
     // Now emit vertices
     coord = inData[out0].coord;
     color = inData[out0].color;
@@ -74,11 +87,30 @@ void main()
     color = inData[out2].color;
     gl_Position = gl_in[out2].gl_Position;
     EmitVertex();
+#else
+    // Now emit vertices
+    coord = inData[out0].coord;
+    color = inData[out0].color;
+    bary = bary0;
+    gl_Position = gl_in[out0].gl_Position;
+    EmitVertex();
 
+    coord = inData[out1].coord;
+    color = inData[out1].color;
+    bary = bary1;
+    gl_Position = gl_in[out1].gl_Position;
+    EmitVertex();
+
+    coord = inData[out2].coord;
+    color = inData[out2].color;
+    bary = bary2;
+    gl_Position = gl_in[out2].gl_Position;
+    EmitVertex();
+#endif
 #if 0
     // This is the magic for doing this on triangles
     // or arbitrary width lines
-    // @TODO revisit this
+    // TODO revisit this
 
     // We need to keep all the edges numbered "consistently"
     // By making the edge away from the hyp 

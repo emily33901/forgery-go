@@ -97,9 +97,13 @@ func (f *ForgeryContext) RenderUI() {
 	// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()!
 	// You can browse its code to learn more about Dear ImGui!).
 
+	if f.platform.IsShiftPressed() && f.platform.KeyWentDown('A') {
+		f.showMaterialsWindow = !f.showMaterialsWindow
+	}
+
 	if !f.texturesLoadingComplete {
 		done := false
-		for i := 0; i < 100 && !done; i++ {
+		for i := 0; i < 1000 && !done; i++ {
 			select {
 			case _ = <-f.texturesLoadingCompleteChan:
 				f.texturesLoadedCount++
@@ -275,7 +279,9 @@ func (f *ForgeryContext) RenderUI() {
 			imgui.Text(fmt.Sprintf("Average FPS: %f", totalFps/float64(len(f.fpsHistory))))
 			imgui.Separator()
 
+			imgui.PushTextWrapPosV(128)
 			imgui.Text(fmt.Sprintf("Selected Texture: %s", f.selectedTexture))
+			imgui.PopTextWrapPos()
 
 			tex, found := cache.LookupTextureNoLoad(f.selectedTexture)
 
@@ -283,7 +289,7 @@ func (f *ForgeryContext) RenderUI() {
 				logger.Warn("Unable to find texture for overlay - this really should not happen!")
 			}
 
-			if imgui.ImageButton(cache.OglToImguiTextureId(uint32(tex)), imgui.Vec2{128, 128}) {
+			if imgui.ImageButton(cache.OglToImguiTextureId(uint32(tex)), imgui.Vec2{64, 64}) {
 				f.showMaterialsWindow = true
 			}
 
@@ -442,7 +448,7 @@ func (f *ForgeryContext) NewApp() {
 	// TODO: Dont just load this default
 	// TODO methods of handling multiple open docs at the same time!
 	{
-		newMap, err := formats.LoadVmf("assets/default_cs_small.vmf")
+		newMap, err := formats.LoadVmf("assets/default_cs.vmf")
 
 		if err != nil {
 			panic(err)
@@ -453,6 +459,7 @@ func (f *ForgeryContext) NewApp() {
 		f.scene = view.NewSceneFromVmf(f.activeMap)
 	}
 
+	f.showInfoOverlay = true
 }
 
 func (f *ForgeryContext) DestroyApp() {

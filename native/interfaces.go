@@ -17,6 +17,7 @@ type Platform interface {
 
 	// IsKeyPressed returns if there is a key pressed
 	IsKeyPressed(c rune) bool
+	IsShiftPressed() bool
 	KeyWentDown(c rune) bool
 	SetCursorDisabled(state bool)
 

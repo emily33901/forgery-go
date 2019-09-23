@@ -75,7 +75,6 @@ type SceneWindow struct {
 	// TODO: needs to be replaced with a smarter structure
 	selectionInProgress bool
 	selectionToMake     mgl32.Vec2
-	selectionResults    map[mgl32.Vec3]selectionResult
 	selectionResult     selectionResult
 	segmentRay          mgl32.Vec3
 	segmentOrigin       mgl32.Vec3
@@ -119,7 +118,6 @@ func NewSceneWindow(fs filesystem.IFileSystem,
 		open:               true,
 		selectionMesh:      render.NewMeshHelper(),
 		axesMesh:           createAxesObject(),
-		selectionResults:   make(map[mgl32.Vec3]selectionResult),
 		selectedMeshHelper: render.NewMeshHelper(),
 	}
 
@@ -138,51 +136,86 @@ func (window *SceneWindow) Initialize() {
 
 // SelectionChanged handles updating what meshes have been selected
 func (window *SceneWindow) SelectionChanged() {
-	window.selectionMesh.ResetMesh()
-	m := window.selectionMesh.Mesh()
-	m.SetMaterial(material.NewMaterial("editor/selectionsquare"))
-
-	color := []float32{1, 0, 0, 1}
 	selectionColor := []float32{1, 0, 0, 0.5}
 
-	if len(window.selectionResults) > 0 {
-		for origin := range window.selectionResults {
-			x := origin[0]
-			y := origin[1]
-			z := origin[2]
+	// Handle object selection
 
-			// TODO: better mesh builder
+	aspect := window.wSize.X / window.wSize.Y
 
-			m.AddLine(color, mgl32.Vec3{x + 64, y, z}, origin)
-			m.AddLine(color, mgl32.Vec3{x, y + 64, z}, origin)
-			m.AddLine(color, mgl32.Vec3{x, y, z + 64}, origin)
-			m.AddLine(color, mgl32.Vec3{x, y, z - 64}, origin)
-			m.AddLine(color, mgl32.Vec3{x, y - 64, z}, origin)
-			m.AddLine(color, mgl32.Vec3{x - 64, y, z}, origin)
+	view := window.Camera().ViewMatrix()
+	proj := window.Camera().ProjectionMatrix(aspect)
+
+	// Get the point clicked on both the near and far planes
+	// and then work out the line between them
+	segmentVec := window.Camera().ScreenToWorld(window.selectionToMake.Vec3(1.0), igToMglVec2(window.wSize), aspect)
+	segmentOrigin := window.Camera().ScreenToWorld(window.selectionToMake.Vec3(0.5), igToMglVec2(window.wSize), aspect)
+
+	segmentVec = segmentVec.Sub(segmentOrigin)
+
+	window.segmentOrigin = segmentOrigin
+	window.segmentRay = segmentVec
+
+	selectionResults := make(map[mgl32.Vec3]selectionResult)
+
+	for _, m := range window.scene.SolidMeshes {
+		for _, mesh := range m.Meshes() {
+			// Collide with meshes that are made of triangles
+			// TODO: we could do with a more robust way of knowing this
+			if len(mesh.Vertices())%3 == 0 {
+				verts := mesh.Vertices()
+				// Transform all verticies
+				for i := 0; i < len(verts); i += 3 {
+					point, didCollide := math.IntersectSegmentTriangle(segmentOrigin, segmentVec, verts[0], verts[1], verts[2])
+
+					if !didCollide {
+						continue
+					}
+
+					// We need to project the point to get the depth of the collision
+					depth := mgl32.Project(point, view, proj, 0, 0, int(window.wSize.X), int(window.wSize.Y))
+
+					selectionResults[point] = selectionResult{m, depth.Z()}
+				}
+			}
 		}
 	}
 
+	// Sort the slection points
+	// we are looking for the one that is closest to the camera (lowest Z)
+
+	minResult := mgl32.Vec3{0, 0, 0}
+
+	for k := range selectionResults {
+		minResult = k
+		break
+	}
+
+	for point, result := range selectionResults {
+		if result.depth < selectionResults[minResult].depth {
+			minResult = point
+		}
+	}
+
+	resultModel := selectionResults[minResult].model
+
 	// Select the mesh that is selected
-	if window.selectionResult.model != nil {
+	if resultModel != nil {
 		window.selectedMeshHelper.ResetMesh()
 
-		for _, m := range window.selectionResult.model.Meshes() {
+		mesh := window.selectedMeshHelper.Mesh()
+
+		for _, m := range resultModel.Meshes() {
 			window.selectedMeshHelper.AddMesh(m)
 		}
 
-		newColors := make([]float32, 0, len(m.Vertices())*4)
-		for range m.Vertices() {
+		newColors := make([]float32, 0, len(mesh.Vertices())*4)
+		for range mesh.Vertices() {
 			newColors = append(newColors, selectionColor...)
 		}
 
 		window.selectedMeshHelper.Mesh().ResetColors(newColors...)
 	}
 
-	endPoint := window.segmentOrigin.Add(window.segmentRay)
-
-	m.AddLine(color, window.segmentOrigin, endPoint)
-
-	window.selectionResults = make(map[mgl32.Vec3]selectionResult)
 	window.selectionInProgress = false
 }
 
@@ -208,67 +241,6 @@ func (window *SceneWindow) RenderScene() {
 	// TODO: this no longer has to be done here!
 	if window.selectionInProgress {
 		logger.Notice("Processing selection!")
-		// Handle object selection
-
-		aspect := window.wSize.X / window.wSize.Y
-
-		view := window.Camera().ViewMatrix()
-		proj := window.Camera().ProjectionMatrix(aspect)
-
-		// Get the point clicked on both the near and far planes
-		// and then work out the line between them
-		segmentVec := window.Camera().ScreenToWorld(window.selectionToMake.Vec3(1.0), igToMglVec2(window.wSize), aspect)
-		segmentOrigin := window.Camera().ScreenToWorld(window.selectionToMake.Vec3(0.5), igToMglVec2(window.wSize), aspect)
-
-		segmentVec = segmentVec.Sub(segmentOrigin)
-
-		window.segmentOrigin = segmentOrigin
-		window.segmentRay = segmentVec
-
-		//minz := 1.0
-
-		// TODO make selectionresults into a local array and pass to selectionchanged
-
-		for _, m := range window.scene.SolidMeshes {
-			for _, mesh := range m.Meshes() {
-				// Collide with meshes that are made of triangles
-				// TODO: we could do with a more robust way of knowing this
-				if len(mesh.Vertices())%3 == 0 {
-					verts := mesh.Vertices()
-					// Transform all verticies
-					for i := 0; i < len(verts); i += 3 {
-						point, didCollide := math.IntersectSegmentTriangle(segmentOrigin, segmentVec, verts[0], verts[1], verts[2])
-
-						if !didCollide {
-							continue
-						}
-
-						// We need to project the point to get the depth of the collision
-						depth := mgl32.Project(point, view, proj, 0, 0, int(window.wSize.X), int(window.wSize.Y))
-
-						window.selectionResults[point] = selectionResult{m, depth.Z()}
-					}
-				}
-			}
-		}
-
-		// Sort the slection points
-		// we are looking for the one that is closest to the camera (lowest Z)
-
-		minResult := mgl32.Vec3{0, 0, 0}
-
-		for k := range window.selectionResults {
-			minResult = k
-			break
-		}
-
-		for point, result := range window.selectionResults {
-			if result.depth < window.selectionResults[minResult].depth {
-				minResult = point
-			}
-		}
-
-		window.selectionResult = window.selectionResults[minResult]
 
 		window.SelectionChanged()
 	}
@@ -409,6 +381,13 @@ func (window *SceneWindow) Render(deltaTime float32) {
 				}
 			}
 
+			if imgui.IsItemHovered() && !window.selectionInProgress && imgui.IsMouseClicked(0) {
+				window.selectionInProgress = true
+				curCursorPos := imgui.CurrentIO().MousePos()
+				windowPos := curCursorPos.Minus(wPos)
+				window.selectionToMake = mgl32.Vec2{windowPos.X, wSize.Y - windowPos.Y}
+			}
+
 			if window.mouseCaptured {
 				// Draw a little cursor on the screen
 				oldCursorPos := imgui.CursorScreenPos()
@@ -440,13 +419,6 @@ func (window *SceneWindow) Render(deltaTime float32) {
 
 				window.Camera().Zoom(scrollDelta)
 				window.Camera().Rotate(-delta.X/180, 0, -delta.Y/180)
-			}
-
-			if imgui.IsItemHovered() && !window.selectionInProgress && imgui.IsMouseClicked(0) {
-				window.selectionInProgress = true
-				curCursorPos := imgui.CurrentIO().MousePos()
-				windowPos := curCursorPos.Minus(wPos)
-				window.selectionToMake = mgl32.Vec2{windowPos.X, wSize.Y - windowPos.Y}
 			}
 		} else if imgui.IsItemHovered() {
 			// 2D view

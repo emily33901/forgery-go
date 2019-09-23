@@ -215,6 +215,10 @@ func (platform *GLFW) IsKeyPressed(key rune) bool {
 	return platform.keyPressedMap[key] > 0
 }
 
+func (platform *GLFW) IsShiftPressed() bool {
+	return platform.keyPressedMap[rune(int(glfw.KeyLeftShift))] > 0 || platform.keyPressedMap[rune(int(glfw.KeyLeftShift))] > 0
+}
+
 func (platform *GLFW) KeyWentDown(key rune) bool {
 	return platform.keyPressedMap[key] == 1
 }

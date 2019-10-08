@@ -7,7 +7,6 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 
 	"github.com/emily33901/go-forgery/valve/world"
-	"github.com/emily33901/gosigl"
 	"github.com/emily33901/lambda-core/core/material"
 	lambdaMesh "github.com/emily33901/lambda-core/core/mesh"
 	lambdaModel "github.com/emily33901/lambda-core/core/model"
@@ -95,8 +94,6 @@ func SideToMesh(side *world.Side) *lambdaMesh.Mesh {
 
 	// Tangents
 	mesh.GenerateTangents()
-
-	gosigl.FinishMesh()
 
 	return mesh
 }

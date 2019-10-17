@@ -160,7 +160,7 @@ func (f *ForgeryContext) RenderUI() {
 
 					f.activeMap = newMap
 					f.documentLoaded = true
-					f.scene = view.NewSceneFromVmf(f.activeMap)
+					f.scene = view.NewSceneFromVmf(f.filesystem, f.activeMap)
 				}
 			}
 			if imgui.BeginMenu("Recent") {
@@ -381,7 +381,7 @@ func (f *ForgeryContext) Run() {
 func (f *ForgeryContext) NewSceneWindow() {
 	// 1024 is the framebuffer size
 	f.lastSceneWindowId++
-	newWindow := windows.NewSceneWindow(f.filesystem,
+	newWindow := windows.NewSceneWindow(
 		f.adapter,
 		f.render,
 		f.scene,
@@ -438,7 +438,6 @@ func (f *ForgeryContext) NewApp() {
 
 	cache.InitTextureLookup()
 
-	// TODO Dont do this on the same thread doh
 	f.texturesLoadingCompleteChan = make(chan struct{}, 1000)
 	f.texturesLoadedExpected = cache.LoadAllKnownMaterials(f.filesystem, f.texturesLoadingCompleteChan)
 
@@ -456,7 +455,7 @@ func (f *ForgeryContext) NewApp() {
 
 		f.activeMap = newMap
 		f.documentLoaded = true
-		f.scene = view.NewSceneFromVmf(f.activeMap)
+		f.scene = view.NewSceneFromVmf(f.filesystem, f.activeMap)
 	}
 
 	f.showInfoOverlay = true

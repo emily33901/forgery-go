@@ -7,19 +7,21 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 
 	"github.com/emily33901/go-forgery/valve/world"
+	"github.com/emily33901/lambda-core/core/filesystem"
+	materialoader "github.com/emily33901/lambda-core/core/loader/material"
 	"github.com/emily33901/lambda-core/core/material"
 	lambdaMesh "github.com/emily33901/lambda-core/core/mesh"
 	lambdaModel "github.com/emily33901/lambda-core/core/model"
-	"github.com/emily33901/lambda-core/core/resource"
+	"github.com/golang-source-engine/vmt"
 )
 
-func SolidToModel(solid *world.Solid) *lambdaModel.Model {
+func SolidToModel(solid *world.Solid, fs filesystem.IFileSystem) *lambdaModel.Model {
 	meshes := make([]lambdaMesh.IMesh, 0)
 
 	solidColor := []float32{rand.Float32()/4 + 0.1, rand.Float32()/2 + 0.5, rand.Float32()/4 + 0.75, 1.0}
 
 	for idx := range solid.Sides {
-		mesh := SideToMesh(&solid.Sides[idx])
+		mesh := sideToMesh(&solid.Sides[idx], fs)
 
 		// Color for each vertex
 		mesh.AddColor(solidColor...)
@@ -35,11 +37,11 @@ func SolidToModel(solid *world.Solid) *lambdaModel.Model {
 	return lambdaModel.NewModel(fmt.Sprintf("solid_%d", solid.Id), meshes...)
 }
 
-func SideToMesh(side *world.Side) *lambdaMesh.Mesh {
+func sideToMesh(side *world.Side, fs filesystem.IFileSystem) *lambdaMesh.Mesh {
 	mesh := lambdaMesh.NewMesh()
 
 	// Material
-	mesh.SetMaterial(material.NewMaterial(side.Material))
+	mesh.SetMaterial(material.NewMaterial(side.Material, vmt.NewProperties()))
 
 	// Vertices
 	verts := make([]mgl32.Vec3, 0)
@@ -79,11 +81,12 @@ func SideToMesh(side *world.Side) *lambdaMesh.Mesh {
 	{
 		for i := range verts {
 			// TODO width & height must be known
-			mat := resource.Manager().Material(side.Material)
+			mat := materialoader.LoadSingleMaterial(side.Material, fs)
 
 			width, height := 128, 128
 
 			if mat != nil {
+				mesh.SetMaterial(mat)
 				width = mat.Width()
 				height = mat.Height()
 			}

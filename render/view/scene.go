@@ -22,6 +22,8 @@ type Scene struct {
 	cameras map[string]*entity.Camera
 	// activeCamera *entity.Camera
 
+	filesystem filesystem.IFileSystem
+
 	FrameCompositor *render.Compositor
 	FrameComposed   *render.Composition
 	FrameMesh       *gosigl.VertexObject
@@ -44,7 +46,7 @@ func (scene *Scene) Composition() *gosigl.VertexObject {
 	return scene.FrameMesh
 }
 
-func (scene *Scene) RecomposeScene(fs filesystem.IFileSystem) *gosigl.VertexObject {
+func (scene *Scene) RecomposeScene() *gosigl.VertexObject {
 	if scene.FrameMesh != nil {
 		gosigl.DeleteMesh(scene.FrameMesh)
 	}
@@ -62,7 +64,7 @@ func (scene *Scene) RecomposeScene(fs filesystem.IFileSystem) *gosigl.VertexObje
 
 	// Make sure that we have all the textures we need
 	for _, m := range scene.FrameComposed.MaterialMeshes() {
-		cache.LookupTexture(fs, m.Material())
+		cache.LookupTexture(scene.filesystem, m.Material())
 	}
 	return scene.FrameMesh
 }
@@ -70,7 +72,7 @@ func (scene *Scene) RecomposeScene(fs filesystem.IFileSystem) *gosigl.VertexObje
 func (scene *Scene) AddSolid(solid *world.Solid) {
 	scene.Solids[solid.Id] = solid
 
-	model := convert.SolidToModel(solid)
+	model := convert.SolidToModel(solid, scene.filesystem)
 	scene.SolidMeshes[solid.Id] = model
 
 	for idx := range model.Meshes() {
@@ -94,8 +96,9 @@ func (scene *Scene) Close() {
 	gosigl.DeleteMesh(scene.FrameMesh)
 }
 
-func NewScene() *Scene {
+func NewScene(fs filesystem.IFileSystem) *Scene {
 	return &Scene{
+		filesystem:      fs,
 		Solids:          map[int]*world.Solid{},
 		SolidMeshes:     map[int]*model.Model{},
 		cameras:         map[string]*entity.Camera{},
@@ -103,8 +106,8 @@ func NewScene() *Scene {
 	}
 }
 
-func NewSceneFromVmf(vmf *formats.Vmf) *Scene {
-	s := NewScene()
+func NewSceneFromVmf(fs filesystem.IFileSystem, vmf *formats.Vmf) *Scene {
+	s := NewScene(fs)
 
 	for i := 0; i < vmf.Entities().Length(); i++ {
 		// s.AddSolid(vmf.Entities().Get(i))

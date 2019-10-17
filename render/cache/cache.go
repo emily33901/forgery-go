@@ -25,7 +25,7 @@ func createEntryForTexture(fs filesystem.IFileSystem, name string) {
 		return
 	}
 
-	lazy.LoadSingleLazyMaterial(name+".vmt", fs)
+	material.LoadSingleMaterial(name, fs)
 
 	textureLookupMutex.Lock()
 	textureLookup[name] = 0
@@ -33,7 +33,7 @@ func createEntryForTexture(fs filesystem.IFileSystem, name string) {
 }
 
 func BindTexture(fs filesystem.IFileSystem, name string) gosigl.TextureBindingId {
-	baseMat := resource.Manager().Material("materials/" + name + ".vmt")
+	baseMat := resource.Manager().Material(name + ".vmt")
 	if baseMat == nil {
 		// Really try to make sure this is loaded first
 		baseMat = lazy.LoadSingleLazyMaterial(name+".vmt", fs)
@@ -164,16 +164,17 @@ func LoadAllKnownMaterials(fs filesystem.IFileSystem, texDone chan struct{}) int
 	for _, x := range fs.AllPaths() {
 		if strings.Index(x, "materials/") != -1 {
 			if strings.Index(x, ".vmt") != -1 {
-				if x != "materials/models/player/custom_player/econ/head/ctm_fbi/ctm_fbi_v2_head_varianta.vmt" &&
-					x != "materials/models/player/custom_player/econ/head/tm_leet/tm_leet_v2_head_variantc.vmt" {
-					materials = append(materials, x[len("materials/"):len(x)-len(".vmt")])
+				if x == "materials/models/player/custom_player/econ/head/ctm_fbi/ctm_fbi_v2_head_varianta.vmt" &&
+					x == "materials/models/player/custom_player/econ/head/tm_leet/tm_leet_v2_head_variantc.vmt" {
+					continue
 				}
+				materials = append(materials, x[len("materials/"):len(x)-len(".vmt")])
 			}
 		}
 	}
 
 	// Then chunk that array up
-	const chunkCount = 16
+	const chunkCount = 8
 	chunkSize := len(materials) / chunkCount
 	chunks := make([][]string, 0, chunkCount)
 

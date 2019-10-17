@@ -14,7 +14,6 @@ import (
 	"github.com/emily33901/go-forgery/render/view"
 	"github.com/emily33901/imgui-go"
 	"github.com/emily33901/lambda-core/core/entity"
-	"github.com/emily33901/lambda-core/core/filesystem"
 	"github.com/emily33901/lambda-core/core/logger"
 	"github.com/emily33901/lambda-core/core/material"
 	"github.com/go-gl/mathgl/mgl32"
@@ -33,7 +32,7 @@ func createAxesObject() *render.MeshHelper {
 	helper := render.NewMeshHelper()
 	mesh := helper.Mesh()
 
-	mesh.SetMaterial(material.NewMaterial("editor/axes"))
+	mesh.SetMaterial(material.NewMaterial("editor/axes", material.NewProperties()))
 	mesh.AddLine([]float32{1, 0, 0, 1}, mgl32.Vec3{64, 0, 0}, mgl32.Vec3{0, 0, 0})
 	mesh.AddLine([]float32{0, 1, 0, 1}, mgl32.Vec3{0, 64, 0}, mgl32.Vec3{0, 0, 0})
 	mesh.AddLine([]float32{0, 0, 1, 1}, mgl32.Vec3{0, 0, 64}, mgl32.Vec3{0, 0, 0})
@@ -45,7 +44,6 @@ func createAxesObject() *render.MeshHelper {
 var cameraControlFrame int
 
 type SceneWindow struct {
-	filesystem      filesystem.IFileSystem
 	graphicsAdapter render.Adapter
 
 	window   *view.RenderWindow
@@ -89,7 +87,7 @@ func oglToImguiTextureId(id uint32) imgui.TextureID {
 	return imgui.TextureID(uint64(id) | (1 << 32))
 }
 
-func NewSceneWindow(fs filesystem.IFileSystem,
+func NewSceneWindow(
 	adapter render.Adapter,
 	renderer *render.Renderer,
 	scene *view.Scene,
@@ -103,7 +101,6 @@ func NewSceneWindow(fs filesystem.IFileSystem,
 	scene.AddCamera(newCamera, camera)
 
 	r := &SceneWindow{
-		filesystem:         fs,
 		graphicsAdapter:    adapter,
 		renderer:           renderer,
 		scene:              scene,
@@ -148,7 +145,7 @@ func (window *SceneWindow) SelectionChanged() {
 	// Get the point clicked on both the near and far planes
 	// and then work out the line between them
 	segmentVec := window.Camera().ScreenToWorld(window.selectionToMake.Vec3(1.0), igToMglVec2(window.wSize), aspect)
-	segmentOrigin := window.Camera().ScreenToWorld(window.selectionToMake.Vec3(0.5), igToMglVec2(window.wSize), aspect)
+	segmentOrigin := window.Camera().ScreenToWorld(window.selectionToMake.Vec3(0.1), igToMglVec2(window.wSize), aspect)
 
 	segmentVec = segmentVec.Sub(segmentOrigin)
 
@@ -222,7 +219,7 @@ func (window *SceneWindow) SelectionChanged() {
 func (window *SceneWindow) RenderScene() {
 	dirtyComposition := window.scene.FrameCompositor.IsOutdated()
 	if dirtyComposition {
-		window.scene.RecomposeScene(window.filesystem)
+		window.scene.RecomposeScene()
 	}
 
 	window.renderer.StartFrame()

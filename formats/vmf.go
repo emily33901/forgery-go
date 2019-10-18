@@ -2,6 +2,7 @@ package formats
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 
@@ -210,6 +211,24 @@ func loadWorld(root *vmf.Node) (*world.World, error) {
 	return world.NewWorld(&worldSpawn, solids), nil
 }
 
+func loadEditor(solidNode *vmf.Node) *world.Editor {
+	e := solidNode.GetChildrenByKey("editor")[0]
+
+	var x, y, z float32
+
+	fmt.Sscanf(e.GetProperty("color"), "%f %f %f", &x, &y, &z)
+
+	var visGroup, visGroupAuto bool
+
+	visGroupInt, _ := strconv.ParseInt(e.GetProperty("visgroupshown"), 10, 0)
+	visGroupAutoInt, _ := strconv.ParseInt(e.GetProperty("visgroupautoshown"), 10, 0)
+
+	visGroup = visGroupInt == 1
+	visGroupAuto = visGroupAutoInt == 1
+
+	return world.NewEditor(mgl32.Vec3{x, y, z}, visGroup, visGroupAuto)
+}
+
 // loadSolid takes a vmf node tree that represents a solid and turns
 // it into a properly defind model structure for the solid with
 // proper type definitions.
@@ -256,7 +275,9 @@ func loadSolid(node *vmf.Node) (*world.Solid, error) {
 		sides[idx] = *world.NewSide(int(id), plane, material, u, v, float32(rotation), float32(lmScale), smoothing)
 	}
 
-	return world.NewSolid(int(id), sides, nil), nil
+	editor := loadEditor(node)
+
+	return world.NewSolid(int(id), sides, editor), nil
 }
 
 // loadEntities creates models from the entity data block

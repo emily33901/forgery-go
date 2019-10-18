@@ -29,7 +29,7 @@ type UVTransform struct {
 }
 
 type Editor struct {
-	color             mgl32.Vec3
+	Color             mgl32.Vec3
 	visgroupShown     bool
 	visGroupAutoShown bool
 
@@ -61,7 +61,7 @@ func NewSide(id int, plane Plane, material string, uAxis UVTransform, vAxis UVTr
 
 func NewEditor(color mgl32.Vec3, visgroupShown bool, visgroupAutoShown bool) *Editor {
 	return &Editor{
-		color:             color,
+		Color:             color,
 		visgroupShown:     visgroupShown,
 		visGroupAutoShown: visgroupAutoShown,
 	}

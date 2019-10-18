@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/emily33901/lambda-core/core/model"
-
 	"github.com/emily33901/lambda-core/core/math"
 
 	"github.com/emily33901/go-forgery/formats"
@@ -24,7 +22,8 @@ func igToMglVec2(v imgui.Vec2) mgl32.Vec2 {
 }
 
 type selectionResult struct {
-	model *model.Model
+	solid int
+	side  int
 	depth float32
 }
 
@@ -71,11 +70,11 @@ type SceneWindow struct {
 	renderType int
 
 	// TODO: needs to be replaced with a smarter structure
-	selectionInProgress bool
-	selectionToMake     mgl32.Vec2
-	selectionResult     selectionResult
-	segmentRay          mgl32.Vec3
-	segmentOrigin       mgl32.Vec3
+	// selectionToMake     mgl32.Vec2
+	selectionResult selectionResult
+	// segmentRay          mgl32.Vec3
+	// segmentOrigin       mgl32.Vec3
+	selectionValid bool
 
 	selectedMeshHelper *render.MeshHelper
 
@@ -114,11 +113,10 @@ func NewSceneWindow(
 		renderType:         0,
 		open:               true,
 		selectionMesh:      render.NewMeshHelper(),
+		selectionValid:     false,
 		axesMesh:           createAxesObject(),
 		selectedMeshHelper: render.NewMeshHelper(),
 	}
-
-	r.SelectionChanged()
 
 	// TODO: this is only used by the old line renderer
 	renderer.LineWidth = 3
@@ -132,7 +130,7 @@ func (window *SceneWindow) Initialize() {
 }
 
 // SelectionChanged handles updating what meshes have been selected
-func (window *SceneWindow) SelectionChanged() {
+func (window *SceneWindow) SelectionChanged(selectionToMake mgl32.Vec2) {
 	selectionColor := []float32{1, 0, 0, 0.5}
 
 	// Handle object selection
@@ -144,17 +142,17 @@ func (window *SceneWindow) SelectionChanged() {
 
 	// Get the point clicked on both the near and far planes
 	// and then work out the line between them
-	segmentVec := window.Camera().ScreenToWorld(window.selectionToMake.Vec3(1.0), igToMglVec2(window.wSize), aspect)
-	segmentOrigin := window.Camera().ScreenToWorld(window.selectionToMake.Vec3(0.1), igToMglVec2(window.wSize), aspect)
+	segmentVec := window.Camera().ScreenToWorld(selectionToMake.Vec3(1.0), igToMglVec2(window.wSize), aspect)
+	segmentOrigin := window.Camera().ScreenToWorld(selectionToMake.Vec3(0.1), igToMglVec2(window.wSize), aspect)
 
 	segmentVec = segmentVec.Sub(segmentOrigin)
 
-	window.segmentOrigin = segmentOrigin
-	window.segmentRay = segmentVec
+	// window.segmentOrigin = segmentOrigin
+	// window.segmentRay = segmentVec
 
 	selectionResults := make(map[mgl32.Vec3]selectionResult)
 
-	for _, m := range window.scene.SolidMeshes {
+	for solidId, m := range window.scene.SolidMeshes {
 		for _, mesh := range m.Meshes() {
 			// Collide with meshes that are made of triangles
 			// TODO: we could do with a more robust way of knowing this
@@ -171,10 +169,15 @@ func (window *SceneWindow) SelectionChanged() {
 					// We need to project the point to get the depth of the collision
 					depth := mgl32.Project(point, view, proj, 0, 0, int(window.wSize.X), int(window.wSize.Y))
 
-					selectionResults[point] = selectionResult{m, depth.Z()}
+					selectionResults[point] = selectionResult{solidId, mesh.Meta("side").(int), depth.Z()}
 				}
 			}
 		}
+	}
+
+	if len(selectionResults) == 0 {
+		window.selectionValid = false
+		return
 	}
 
 	// Sort the slection points
@@ -193,7 +196,7 @@ func (window *SceneWindow) SelectionChanged() {
 		}
 	}
 
-	resultModel := selectionResults[minResult].model
+	resultModel := window.scene.SolidMeshes[selectionResults[minResult].solid]
 
 	// Select the mesh that is selected
 	if resultModel != nil {
@@ -213,7 +216,9 @@ func (window *SceneWindow) SelectionChanged() {
 		window.selectedMeshHelper.Mesh().ResetColors(newColors...)
 	}
 
-	window.selectionInProgress = false
+	window.selectionResult = selectionResults[minResult]
+
+	window.selectionValid = true
 }
 
 func (window *SceneWindow) RenderScene() {
@@ -234,13 +239,6 @@ func (window *SceneWindow) RenderScene() {
 	window.window.Bind(window.wSize.X, window.wSize.Y)
 	window.renderer.DrawComposition(window.scene.FrameComposed, window.scene.Composition(), window.renderType)
 	window.graphicsAdapter.Error()
-
-	// TODO: this no longer has to be done here!
-	if window.selectionInProgress {
-		logger.Notice("Processing selection!")
-
-		window.SelectionChanged()
-	}
 
 	// Render other misc items (axes, selectionpoint)...
 
@@ -349,7 +347,6 @@ func (window *SceneWindow) Render(deltaTime float32) {
 		window.wSize = wSize
 		wPos := imgui.CursorScreenPos()
 		aspect := wSize.X / wSize.Y
-		// window.Camera().SetAspect(aspect)
 
 		// TODO change 4000 to the framebuffer size
 
@@ -376,13 +373,6 @@ func (window *SceneWindow) Render(deltaTime float32) {
 
 					cameraControlFrame = window.platform.FrameCount()
 				}
-			}
-
-			if imgui.IsItemHovered() && !window.selectionInProgress && imgui.IsMouseClicked(0) {
-				window.selectionInProgress = true
-				curCursorPos := imgui.CurrentIO().MousePos()
-				windowPos := curCursorPos.Minus(wPos)
-				window.selectionToMake = mgl32.Vec2{windowPos.X, wSize.Y - windowPos.Y}
 			}
 
 			if window.mouseCaptured {
@@ -464,6 +454,23 @@ func (window *SceneWindow) Render(deltaTime float32) {
 
 				// Zoom needs to be an exp
 				window.Camera().Zoom(scrollDelta)
+			}
+		}
+
+		if imgui.IsItemHovered() {
+			if imgui.IsMouseClicked(0) {
+				curCursorPos := imgui.CurrentIO().MousePos()
+				windowPos := curCursorPos.Minus(wPos)
+
+				logger.Notice("Processing selection!")
+				window.SelectionChanged(mgl32.Vec2{windowPos.X, wSize.Y - windowPos.Y})
+			}
+		}
+
+		if window.selectionValid != false {
+			if imgui.BeginPopupContextItemV("selection popup", 1) {
+				imgui.Text(fmt.Sprintf("Selected solid_%d by side_%d", window.selectionResult.solid, window.selectionResult.side))
+				imgui.EndPopup()
 			}
 		}
 

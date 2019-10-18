@@ -2,13 +2,13 @@ package convert
 
 import (
 	"fmt"
-	"math/rand"
 
 	"github.com/go-gl/mathgl/mgl32"
 
 	"github.com/emily33901/go-forgery/valve/world"
 	"github.com/emily33901/lambda-core/core/filesystem"
 	materialoader "github.com/emily33901/lambda-core/core/loader/material"
+	"github.com/emily33901/lambda-core/core/logger"
 	"github.com/emily33901/lambda-core/core/material"
 	lambdaMesh "github.com/emily33901/lambda-core/core/mesh"
 	lambdaModel "github.com/emily33901/lambda-core/core/model"
@@ -18,19 +18,18 @@ import (
 func SolidToModel(solid *world.Solid, fs filesystem.IFileSystem) *lambdaModel.Model {
 	meshes := make([]lambdaMesh.IMesh, 0)
 
-	solidColor := []float32{rand.Float32()/4 + 0.1, rand.Float32()/2 + 0.5, rand.Float32()/4 + 0.75, 1.0}
-
 	for idx := range solid.Sides {
 		mesh := sideToMesh(&solid.Sides[idx], fs)
 
+		mesh.SetMeta("solid", solid.Id)
+
 		// Color for each vertex
-		mesh.AddColor(solidColor...)
-		mesh.AddColor(solidColor...)
-		mesh.AddColor(solidColor...)
-		mesh.AddColor(solidColor...)
-		mesh.AddColor(solidColor...)
-		mesh.AddColor(solidColor...)
-		mesh.AddColor(solidColor...)
+		mesh.AddColor(solid.Editor.Color[0], solid.Editor.Color[1], solid.Editor.Color[2], 1.0)
+		mesh.AddColor(solid.Editor.Color[0], solid.Editor.Color[1], solid.Editor.Color[2], 1.0)
+		mesh.AddColor(solid.Editor.Color[0], solid.Editor.Color[1], solid.Editor.Color[2], 1.0)
+		mesh.AddColor(solid.Editor.Color[0], solid.Editor.Color[1], solid.Editor.Color[2], 1.0)
+		mesh.AddColor(solid.Editor.Color[0], solid.Editor.Color[1], solid.Editor.Color[2], 1.0)
+		mesh.AddColor(solid.Editor.Color[0], solid.Editor.Color[1], solid.Editor.Color[2], 1.0)
 		meshes = append(meshes, mesh)
 	}
 
@@ -42,6 +41,7 @@ func sideToMesh(side *world.Side, fs filesystem.IFileSystem) *lambdaMesh.Mesh {
 
 	// Material
 	mesh.SetMaterial(material.NewMaterial(side.Material, vmt.NewProperties()))
+	mesh.SetMeta("side", side.Id)
 
 	// Vertices
 	verts := make([]mgl32.Vec3, 0)
@@ -89,6 +89,10 @@ func sideToMesh(side *world.Side, fs filesystem.IFileSystem) *lambdaMesh.Mesh {
 				mesh.SetMaterial(mat)
 				width = mat.Width()
 				height = mat.Height()
+			} else {
+				// TODO use the event manager to catch when materials are loaded properly
+				// and then update the uvs there and rebind them
+				logger.Notice("mat == nil so uvs will be wrong")
 			}
 
 			mesh.AddUV(uvForVertex(verts[i], &side.UAxis, &side.VAxis, width, height))

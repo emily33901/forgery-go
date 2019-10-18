@@ -33,10 +33,15 @@ func createEntryForTexture(fs filesystem.IFileSystem, name string) {
 }
 
 func BindTexture(fs filesystem.IFileSystem, name string) gosigl.TextureBindingId {
-	baseMat := resource.Manager().Material(name + ".vmt")
+	realName := name
+	if !strings.HasSuffix(realName, ".vmt") {
+		realName += ".vmt"
+	}
+
+	baseMat := resource.Manager().Material(realName)
 	if baseMat == nil {
 		// Really try to make sure this is loaded first
-		baseMat = lazy.LoadSingleLazyMaterial(name+".vmt", fs)
+		baseMat = lazy.LoadSingleLazyMaterial(realName, fs)
 
 		if baseMat == nil {
 			// We have actually failed now so use the error texture
@@ -49,6 +54,7 @@ func BindTexture(fs filesystem.IFileSystem, name string) gosigl.TextureBindingId
 	if mat.Textures.Albedo.Reload() != nil {
 		// We actually failed to reload this textures data (amazing right?)
 		// So use the error material for this one
+		logger.Warn("Texture failed to reload... Make sure this isnt an error!")
 		baseMat = resource.Manager().Material(resource.Manager().ErrorTextureName())
 	}
 
@@ -164,7 +170,7 @@ func LoadAllKnownMaterials(fs filesystem.IFileSystem, texDone chan struct{}) int
 	for _, x := range fs.AllPaths() {
 		if strings.Index(x, "materials/") != -1 {
 			if strings.Index(x, ".vmt") != -1 {
-				if x == "materials/models/player/custom_player/econ/head/ctm_fbi/ctm_fbi_v2_head_varianta.vmt" &&
+				if x == "materials/models/player/custom_player/econ/head/ctm_fbi/ctm_fbi_v2_head_varianta.vmt" ||
 					x == "materials/models/player/custom_player/econ/head/tm_leet/tm_leet_v2_head_variantc.vmt" {
 					continue
 				}
